@@ -1,0 +1,2312 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>학급 모의투자 거래소 - KOSDAQ 클래스 (연수용 단일학급 에디션)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800;900&display=swap');
+    * { font-family: 'Pretendard', sans-serif; user-select: none; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    .price-up { color: #f43f5e; }
+    .price-down { color: #3b82f6; }
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 h-screen w-screen overflow-hidden flex flex-col">
+
+  <!-- 실시간 주문 체결 토스트 알림 배너 -->
+  <div id="orderToastBanner" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 hidden items-center gap-2.5 px-5 py-3 rounded-2xl shadow-2xl border text-xs sm:text-sm font-black transition-all duration-200 pointer-events-none">
+    <i id="orderToastIcon" class="fa-solid fa-circle-check text-base"></i>
+    <span id="orderToastText">주문이 체결되었습니다!</span>
+  </div>
+
+  <!-- 학생 입장(로그인) 오버레이 모달 (1개 학급 전용) -->
+  <div id="studentLoginOverlay" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-lg p-6 rounded-3xl border border-slate-700 shadow-2xl flex flex-col gap-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-600 flex items-center justify-center shadow-lg">
+            <i class="fa-solid fa-chart-line text-white text-lg"></i>
+          </div>
+          <div>
+            <h2 class="text-base sm:text-lg font-black text-white flex items-center gap-2">
+              <span id="loginRoomTitleDisplay">연수학급 거래소</span>
+            </h2>
+            <p class="text-[11px] text-slate-400">본인 이름을 클릭해 계좌에 로그인하세요! (초기 비밀번호: 1234)</p>
+          </div>
+        </div>
+        <span id="loginCloudBadge" class="px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 font-bold text-[10px]">연결 확인 중...</span>
+      </div>
+
+      <!-- STEP 1: 학생 이름 선택 그리드 (25명) -->
+      <div id="loginStudentGrid" class="grid grid-cols-3 sm:grid-cols-5 gap-2 max-h-64 overflow-y-auto p-1"></div>
+
+      <!-- STEP 2: 선택한 학생 비밀번호 입력 박스 -->
+      <div id="studentPinPromptBox" class="hidden flex-col items-center justify-center bg-slate-900/90 border border-indigo-500/40 rounded-2xl p-5 space-y-3.5">
+        <div class="w-11 h-11 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-400 flex items-center justify-center text-lg">
+          <i class="fa-solid fa-user-lock"></i>
+        </div>
+        <div class="text-center">
+          <div class="text-sm font-black text-white"><span id="pinTargetStudentName" class="text-amber-300">-</span> 학생 계좌 로그인</div>
+          <p class="text-[11px] text-slate-400 mt-0.5">선생님께 안내받은 본인 비밀번호를 입력하세요.</p>
+        </div>
+        <input type="password" id="studentPinInput" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter') confirmStudentPinLogin()"
+          class="w-48 bg-slate-950 border-2 border-slate-700 focus:border-indigo-500 rounded-xl px-3 py-2 text-center font-mono text-base text-white outline-none select-text tracking-widest">
+        <div class="flex items-center gap-2 w-48">
+          <button type="button" onclick="cancelStudentPinPrompt()" class="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs cursor-pointer">뒤로</button>
+          <button type="button" onclick="confirmStudentPinLogin()" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl text-xs cursor-pointer shadow">입장하기</button>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-3 border-t border-slate-800 text-xs">
+        <button type="button" onclick="openTeacherAuthModal()" class="text-amber-400 hover:underline font-bold flex items-center gap-1 cursor-pointer">
+          <i class="fa-solid fa-user-shield"></i> 선생님(교사 모드)으로 접속하기
+        </button>
+        <a href="pay.html" class="text-emerald-400 hover:underline font-bold flex items-center gap-1">
+          <i class="fa-solid fa-qrcode"></i> ClassPay 지갑/포스기 열기
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 교사 모드 비밀번호 모달 -->
+  <div id="teacherAuthModal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-md p-5 rounded-2xl shadow-2xl space-y-4 text-xs">
+      <div class="flex items-center gap-2.5 border-b border-slate-800 pb-3">
+        <div class="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center text-base">
+          <i class="fa-solid fa-chalkboard-user"></i>
+        </div>
+        <div>
+          <h3 class="font-black text-sm text-white"><span id="authModalRoomName" class="text-amber-300">연수학급</span> 교사 관리자 모드 접속</h3>
+          <p class="text-[11px] text-slate-400">교사 전용 비밀번호를 입력하세요. (기본값: 10101)</p>
+        </div>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="font-bold text-slate-300 block mb-1">🔑 교사 비밀번호 입력</label>
+          <input type="password" id="teacherPwInput" placeholder="관리자 비밀번호 입력" onkeydown="if(event.key==='Enter') confirmTeacherLogin()"
+            class="w-full bg-slate-950 border border-slate-700 focus:border-amber-400 rounded-xl px-3 py-2 text-white font-mono outline-none select-text">
+        </div>
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
+          <label class="font-bold text-emerald-400 flex items-center justify-between">
+            <span>☁️ Firebase Realtime Database URL</span>
+            <span class="text-[10px] text-emerald-400">코드 상단 변수 연동</span>
+          </label>
+          <input type="text" id="firebaseUrlInput" value=""
+            class="w-full bg-slate-900 border border-slate-700 focus:border-emerald-500 rounded-lg px-2.5 py-1.5 text-slate-200 font-mono text-[11px] outline-none select-text">
+        </div>
+      </div>
+      <div class="flex items-center gap-2 pt-1">
+        <button type="button" onclick="closeTeacherAuthModal()" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl cursor-pointer">취소</button>
+        <button type="button" onclick="confirmTeacherLogin()" class="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl cursor-pointer">교사 모드 활성화</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 상단 통합 네비게이션 바 -->
+  <header class="h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-3 md:px-4 z-20 flex-shrink-0">
+    <div class="flex items-center gap-2.5">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-600 flex items-center justify-center shadow-lg">
+        <i class="fa-solid fa-graduation-cap text-white text-base"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="font-black text-sm md:text-base leading-none bg-gradient-to-r from-amber-300 via-rose-400 to-indigo-400 bg-clip-text text-transparent">KOSDAQ 클래스</h1>
+          <span id="headerRoomBadge" class="bg-indigo-950 border border-indigo-500/50 text-indigo-300 font-black text-[11px] px-2 py-0.5 rounded-lg">
+            연수학급 서버
+          </span>
+          <span id="cloudStatusBadge" class="hidden sm:flex text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-bold items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-slate-500" id="cloudStatusDot"></span>
+            <span id="cloudStatusText">연결 중...</span>
+          </span>
+        </div>
+        <span id="headerClassCustomTitle" class="text-[10px] text-slate-400">실시간 다자간 학급 모의투자</span>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 md:gap-3">
+      <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+        <button type="button" id="viewMarketBtn" onclick="switchMainView('market')" class="px-2.5 py-1 rounded-lg font-black transition-all bg-indigo-600 text-white shadow cursor-pointer">
+          <i class="fa-solid fa-chart-line mr-1"></i>거래소
+        </button>
+        <button type="button" id="viewRankingBtn" onclick="switchMainView('ranking')" class="px-2.5 py-1 rounded-lg font-bold text-slate-400 hover:text-white transition-all cursor-pointer">
+          <i class="fa-solid fa-trophy mr-1 text-amber-400"></i>랭킹
+        </button>
+        <button type="button" onclick="openMyPayWallet()" class="px-2.5 py-1 rounded-lg font-black text-emerald-300 hover:bg-emerald-950/60 transition-all cursor-pointer" title="내 학급화폐 QR 지갑 및 장부 확인">
+          <i class="fa-solid fa-qrcode mr-1 text-emerald-400"></i>페이 지갑
+        </button>
+      </div>
+
+      <div class="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800 text-xs">
+        <i class="fa-solid fa-user-check text-emerald-400"></i>
+        <select id="studentSelect" onchange="onStudentChange(this.value)" class="bg-transparent font-black text-slate-100 outline-none cursor-pointer max-w-[100px] sm:max-w-[130px] truncate"></select>
+        <button type="button" onclick="openStudentLoginOverlay()" class="text-[10px] text-indigo-400 hover:underline ml-1 font-bold cursor-pointer">계좌변경</button>
+      </div>
+
+      <div class="hidden lg:flex items-center gap-1 bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800 text-xs font-mono">
+        <span class="text-slate-400">진행:</span>
+        <span id="turnDisplay" class="font-extrabold text-amber-300">1일차</span>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-1.5 md:gap-2">
+      <button type="button" onclick="openTutorialModal()" class="px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-bold border border-amber-500/40 flex items-center gap-1 cursor-pointer">
+        <i class="fa-solid fa-book-open"></i><span class="hidden sm:inline">설명서</span>
+      </button>
+
+      <button type="button" id="teacherModeBtn" onclick="onTeacherBtnClick()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold border border-slate-700 flex items-center gap-1 cursor-pointer">
+        <i class="fa-solid fa-lock" id="teacherLockIcon"></i><span class="hidden md:inline" id="teacherBtnLabel">교사 모드</span>
+      </button>
+
+      <div id="teacherActionGroup" class="hidden items-center gap-1.5">
+        <button type="button" onclick="copyRoomShareLink()" class="px-2.5 py-1.5 rounded-xl bg-emerald-950 hover:bg-emerald-900 text-emerald-300 text-xs font-bold border border-emerald-700 flex items-center gap-1 cursor-pointer">
+          <i class="fa-solid fa-link"></i><span class="hidden xl:inline">학급 링크복사</span>
+        </button>
+        <button type="button" id="undoTurnBtn" onclick="undoLastTurn()" disabled class="px-2.5 py-1.5 rounded-xl bg-slate-800 text-slate-500 text-xs font-bold border border-slate-700/60 flex items-center gap-1 transition-all cursor-not-allowed">
+          <i class="fa-solid fa-rotate-left"></i>
+        </button>
+        <button type="button" onclick="exportBackupFile()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 flex items-center gap-1 cursor-pointer">
+          <i class="fa-solid fa-download text-emerald-400"></i>
+        </button>
+        <button type="button" onclick="document.getElementById('backupFileInput').click()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 flex items-center gap-1 cursor-pointer">
+          <i class="fa-solid fa-upload text-blue-400"></i>
+        </button>
+        <input type="file" id="backupFileInput" accept=".json" class="hidden" onchange="importBackupFile(event)">
+        <button type="button" onclick="openClassSetupModal()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold border border-slate-700 flex items-center gap-1 cursor-pointer">
+          <i class="fa-solid fa-sliders text-amber-400"></i><span class="hidden lg:inline">설정/비번</span>
+        </button>
+        <button type="button" onclick="nextMarketTurn()" class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-rose-500 via-amber-500 to-indigo-600 hover:from-rose-400 hover:to-indigo-500 text-white text-xs font-black flex items-center gap-1.5 shadow-lg active:scale-95 transition-all cursor-pointer">
+          <i class="fa-solid fa-forward-step"></i><span>하루 마감</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 교사용 거시경제 상황 컨트롤 바 -->
+  <div id="teacherMacroBar" class="hidden bg-slate-900/95 border-b border-amber-500/30 px-4 py-2 flex-wrap items-center justify-between gap-2.5 z-10 flex-shrink-0">
+    <div class="flex items-center gap-2">
+      <span id="macroRoomBadge" class="px-2 py-0.5 rounded bg-amber-400 text-slate-950 font-black text-[10px]">연수학급 교사 컨트롤</span>
+      <span class="text-xs font-bold text-slate-200">다음 날 거시경제 국면:</span>
+      <span id="economyStateDescription" class="text-xs font-extrabold text-amber-300">3단계: 보통 (랜덤 시장)</span>
+    </div>
+    <div class="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+      <button type="button" id="econBtn1" onclick="setEconomyPhase(1)" class="econ-btn px-2.5 py-1 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-slate-200 cursor-pointer">1. 공황📉</button>
+      <button type="button" id="econBtn2" onclick="setEconomyPhase(2)" class="econ-btn px-2.5 py-1 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-slate-200 cursor-pointer">2. 침체🌧️</button>
+      <button type="button" id="econBtn3" onclick="setEconomyPhase(3)" class="econ-btn px-2.5 py-1 rounded-lg text-xs font-black transition-all bg-indigo-600 text-white shadow cursor-pointer">3. 보통⚖️</button>
+      <button type="button" id="econBtn4" onclick="setEconomyPhase(4)" class="econ-btn px-2.5 py-1 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-slate-200 cursor-pointer">4. 호황🌤️</button>
+      <button type="button" id="econBtn5" onclick="setEconomyPhase(5)" class="econ-btn px-2.5 py-1 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-slate-200 cursor-pointer">5. 대호황🚀</button>
+    </div>
+  </div>
+
+  <!-- 메인 본문 -->
+  <div class="flex-1 overflow-hidden relative">
+    <!-- 1. 거래소 뷰 -->
+    <div id="marketView" class="w-full h-full flex flex-col md:flex-row">
+      <!-- [좌측] 20개 종목 리스트 -->
+      <aside class="w-full md:w-80 lg:w-96 h-2/5 md:h-full flex flex-col bg-slate-900 border-r border-slate-800 flex-shrink-0">
+        <div class="p-2.5 border-b border-slate-800 flex items-center gap-2">
+          <div class="relative flex-1">
+            <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-slate-500 text-xs"></i>
+            <input type="text" id="stockSearchInput" placeholder="종목명 검색..." oninput="renderStockList()"
+              class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 select-text">
+          </div>
+          <select id="sortSelect" onchange="renderStockList()" class="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-slate-300">
+            <option value="code">기본순</option>
+            <option value="rateDesc">등락률 높은순</option>
+            <option value="rateAsc">등락률 낮은순</option>
+            <option value="priceDesc">주가 높은순</option>
+          </select>
+        </div>
+        <div id="stockListContainer" class="flex-1 overflow-y-auto divide-y divide-slate-800/60"></div>
+      </aside>
+
+      <!-- [중앙] 차트 & 실현손익 성적표 & 포트폴리오 -->
+      <section class="flex-1 h-full flex flex-col bg-slate-950 overflow-y-auto">
+        <!-- 학생 상단 HUD: 예수금 + 총자산/총수익률 + 실현손익/실현수익률 모두 표시 -->
+        <div class="p-3 bg-indigo-950/30 border-b border-indigo-900/40 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 font-black text-[11px]" id="hudRoomBadge">연수학급</span>
+            <span class="font-extrabold text-indigo-300 text-sm" id="hudStudentName">-</span>
+            <span class="text-slate-500">님의 계좌</span>
+          </div>
+          <div class="flex items-center gap-3 font-mono flex-wrap">
+            <div class="flex items-center gap-1.5">
+              <span class="text-slate-400">예수금:</span>
+              <span id="studentCashDisplay" class="font-bold text-emerald-400">0원</span>
+              <button type="button" onclick="openMyPayWallet()" class="px-1.5 py-0.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded border border-emerald-500/40 text-[10px] font-bold cursor-pointer">
+                <i class="fa-solid fa-wallet mr-0.5"></i>지갑
+              </button>
+              <button type="button" id="teacherCashAdjustBtn" onclick="promptCashAdjustment()" class="hidden items-center gap-1 px-1.5 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded border border-amber-500/40 text-[10px] font-bold cursor-pointer">
+                <i class="fa-solid fa-coins"></i>입출금
+              </button>
+            </div>
+            <div><span class="text-slate-400">총자산: </span><span id="studentTotalAssetDisplay" class="font-black text-slate-200">0원</span></div>
+            <div><span class="text-slate-400">총수익률: </span><span id="studentProfitRateDisplay" class="font-bold text-slate-400">0.00%</span></div>
+            <div class="h-3.5 w-px bg-slate-800 hidden xl:block"></div>
+            <div><span class="text-slate-400">실현손익: </span><span id="studentRealizedProfitDisplay" class="font-black text-slate-200">0원</span></div>
+            <div><span class="text-slate-400">실현수익률: </span><span id="studentRealizedRateDisplay" class="font-black text-slate-400">0.00%</span></div>
+            <button type="button" id="teacherRealizedAdjustBtn" onclick="promptRealizedAdjustment()" class="hidden items-center gap-1 px-1.5 py-0.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 rounded border border-rose-500/40 text-[10px] font-bold cursor-pointer">
+              <i class="fa-solid fa-sliders"></i>실현보정
+            </button>
+          </div>
+        </div>
+
+        <div class="p-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4 bg-slate-900/30">
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 id="detailStockName" class="text-lg font-black text-slate-100">-</h2>
+              <span id="detailStockCode" class="text-xs font-mono text-slate-500 font-semibold">000000</span>
+              <span id="limitBadge" class="hidden text-[10px] font-black px-1.5 py-0.5 rounded">상한가</span>
+            </div>
+            <div class="flex items-baseline gap-2 mt-1">
+              <span id="detailPrice" class="text-2xl font-black font-mono">0원</span>
+              <span id="detailDiff" class="text-xs font-bold font-mono">0 (0.00%)</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-3 text-xs font-mono bg-slate-900 px-3 py-2 rounded-xl border border-slate-800">
+            <div><span class="text-[10px] text-slate-400 font-sans block">하한가 (-30%)</span><span id="detailLowerLimit" class="font-bold text-blue-400">0원</span></div>
+            <div class="h-6 w-px bg-slate-800"></div>
+            <div><span class="text-[10px] text-slate-400 font-sans block">기준가</span><span id="detailBasePrice" class="font-bold text-slate-300">0원</span></div>
+            <div class="h-6 w-px bg-slate-800"></div>
+            <div><span class="text-[10px] text-slate-400 font-sans block">상한가 (+30%)</span><span id="detailUpperLimit" class="font-bold text-rose-400">0원</span></div>
+          </div>
+        </div>
+
+        <div class="p-4 flex-shrink-0 flex flex-col h-[250px] md:h-[280px] relative z-0 overflow-hidden">
+          <div class="w-full h-full relative bg-slate-900/40 rounded-xl border border-slate-800/80 p-2 overflow-hidden">
+            <canvas id="stockHistoryChart"></canvas>
+          </div>
+        </div>
+
+        <!-- 내 실현손익/평가손익 요약 배너 -->
+        <div class="px-4 pt-1 pb-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
+            <span class="text-[10px] text-slate-400 font-sans block">누적 매도 투자원금</span>
+            <span id="summaryInvestedCost" class="font-bold text-slate-200 text-sm">0원</span>
+          </div>
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
+            <span class="text-[10px] text-slate-400 font-sans block">누적 실현손익 (확정수익)</span>
+            <span id="summaryRealizedProfit" class="font-black text-slate-200 text-sm">0원</span>
+          </div>
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
+            <span class="text-[10px] text-slate-400 font-sans block">실현수익률 (투자대비)</span>
+            <span id="summaryRealizedRate" class="font-black text-slate-200 text-sm">0.00%</span>
+          </div>
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
+            <span class="text-[10px] text-slate-400 font-sans block">보유주식 평가손익 (미실현)</span>
+            <span id="summaryUnrealizedProfit" class="font-bold text-slate-400 text-sm">0원 (0.00%)</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4 border-t border-slate-800 bg-slate-950 relative z-10 flex-shrink-0">
+          <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800">
+            <h3 class="text-xs font-bold text-slate-300 mb-2 flex items-center justify-between">
+              <span class="flex items-center gap-1.5"><i class="fa-solid fa-wallet text-emerald-400"></i>내 보유 포트폴리오 (매도 시 실현손익 확정)</span>
+              <span class="text-[10px] text-slate-500" id="portfolioCountBadge">0종목</span>
+            </h3>
+            <div class="overflow-x-auto max-h-48 overflow-y-auto">
+              <table class="w-full text-xs text-left">
+                <thead class="sticky top-0 bg-slate-950 z-10">
+                  <tr class="text-slate-500 border-b border-slate-800/80 pb-1 font-medium text-[11px]">
+                    <th class="py-1.5">종목명</th>
+                    <th class="py-1.5">수량</th>
+                    <th class="py-1.5">매수평균가</th>
+                    <th class="py-1.5">평가손익</th>
+                    <th class="py-1.5 text-right">평가수익률</th>
+                  </tr>
+                </thead>
+                <tbody id="studentPortfolioTableBody" class="divide-y divide-slate-800/40 font-mono text-[11px]"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800">
+            <h3 class="text-xs font-bold text-slate-300 mb-2 flex items-center justify-between">
+              <span class="flex items-center gap-1.5">
+                <i class="fa-solid fa-users-viewfinder text-indigo-400"></i>
+                <span id="stockHoldersTitle">현재 종목 주주 명부</span>
+              </span>
+              <span class="text-[10px] text-amber-400 font-mono" id="stockHoldersTotalQty">총 0주 발행</span>
+            </h3>
+            <div class="overflow-x-auto max-h-48 overflow-y-auto">
+              <table class="w-full text-xs text-left">
+                <thead class="sticky top-0 bg-slate-950 z-10">
+                  <tr class="text-slate-500 border-b border-slate-800/80 pb-1 font-medium text-[11px]">
+                    <th class="py-1.5">학생 이름</th>
+                    <th class="py-1.5 text-right">보유 주수</th>
+                    <th class="py-1.5 text-right">평가 금액</th>
+                    <th class="py-1.5 text-right">지분율</th>
+                  </tr>
+                </thead>
+                <tbody id="stockHoldersTableBody" class="divide-y divide-slate-800/40 font-mono text-[11px]"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- [우측] 주문 패널 -->
+      <aside class="w-full md:w-72 lg:w-80 h-auto md:h-full bg-slate-900 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col p-4 flex-shrink-0">
+        <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 mb-3 space-y-1.5">
+          <div class="flex items-center justify-between text-[11px] font-bold text-slate-300">
+            <span><i class="fa-solid fa-wand-magic-sparkles text-amber-400 mr-1"></i>스마트 일괄 주문</span>
+            <span class="text-[9px] text-slate-500">내 계좌 즉시 체결</span>
+          </div>
+          <div class="grid grid-cols-2 gap-1.5 text-xs">
+            <button type="button" onclick="sellAllHoldings()" class="py-2 px-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 text-rose-300 font-black flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-all cursor-pointer">
+              <span class="flex items-center gap-1 text-[11px]"><i class="fa-solid fa-money-bill-transfer"></i>전량 매도</span>
+              <span class="text-[9px] font-normal text-rose-400">실현손익 즉시 확정</span>
+            </button>
+            <button type="button" onclick="aiRandomBuy()" class="py-2 px-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 font-black flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-all cursor-pointer">
+              <span class="flex items-center gap-1 text-[11px]"><i class="fa-solid fa-robot text-amber-400"></i>AI 매수</span>
+              <span class="text-[9px] font-normal text-indigo-400">남은 예수금 풀 분산</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1 p-1 bg-slate-950 rounded-xl border border-slate-800 mb-3">
+          <button type="button" id="orderTypeBuyBtn" onclick="setOrderType('buy')" class="flex-1 py-1.5 text-xs font-black rounded-lg transition-all bg-rose-600 text-white shadow cursor-pointer">매수</button>
+          <button type="button" id="orderTypeSellBtn" onclick="setOrderType('sell')" class="flex-1 py-1.5 text-xs font-bold text-slate-400 hover:text-slate-200 rounded-lg transition-all cursor-pointer">매도</button>
+        </div>
+
+        <div class="space-y-3.5 flex-1">
+          <div>
+            <label class="text-[11px] font-bold text-slate-400">주문 단가</label>
+            <div class="flex items-center justify-between bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 mt-1">
+              <span class="text-xs text-slate-400">현재가</span>
+              <span id="orderUnitPriceDisplay" class="font-black text-sm font-mono text-slate-100">0원</span>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between text-[11px] font-bold text-slate-400">
+              <span>주문 수량</span>
+              <span id="maxAffordableDisplay" class="text-indigo-400">가능: 0주</span>
+            </div>
+            <div class="flex items-center gap-1.5 mt-1">
+              <button type="button" onclick="adjustOrderQty(-10)" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold cursor-pointer">-10</button>
+              <button type="button" onclick="adjustOrderQty(-1)" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold cursor-pointer">-1</button>
+              <input type="number" id="orderQtyInput" value="1" min="1" oninput="updateOrderCalculation()"
+                class="flex-1 bg-slate-950 border border-slate-800 rounded-lg py-1.5 text-center font-mono font-bold text-sm text-slate-100 focus:outline-none focus:border-indigo-500 select-text">
+              <button type="button" onclick="adjustOrderQty(1)" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold cursor-pointer">+1</button>
+              <button type="button" onclick="adjustOrderQty(10)" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold cursor-pointer">+10</button>
+            </div>
+            <div class="grid grid-cols-4 gap-1 mt-1.5 text-[10px] font-mono">
+              <button type="button" onclick="setQtyPercentage(0.1)" class="py-1 bg-slate-800/80 hover:bg-slate-700 rounded text-slate-400 cursor-pointer">10%</button>
+              <button type="button" onclick="setQtyPercentage(0.25)" class="py-1 bg-slate-800/80 hover:bg-slate-700 rounded text-slate-400 cursor-pointer">25%</button>
+              <button type="button" onclick="setQtyPercentage(0.5)" class="py-1 bg-slate-800/80 hover:bg-slate-700 rounded text-slate-400 cursor-pointer">50%</button>
+              <button type="button" onclick="setQtyPercentage(1.0)" class="py-1 bg-slate-800/80 hover:bg-slate-700 rounded font-bold text-amber-300 cursor-pointer">최대</button>
+            </div>
+          </div>
+
+          <div class="p-3 bg-slate-950/80 rounded-xl border border-slate-800/80 space-y-1.5 font-mono text-xs">
+            <div class="flex items-center justify-between text-slate-400">
+              <span>주문 총액:</span>
+              <span id="orderTotalPriceDisplay" class="font-bold text-slate-200">0원</span>
+            </div>
+            <div class="flex items-center justify-between text-slate-500 text-[11px]">
+              <span>매도 시 실현손익:</span>
+              <span id="expectedRealizedDisplay" class="text-emerald-400">즉시 반영</span>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" id="submitOrderBtn" onclick="executeOrder()" class="w-full py-3 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-black text-sm shadow-lg transition-all flex items-center justify-center gap-1.5 mt-3 cursor-pointer">
+          <span>매수 주문 전송</span>
+        </button>
+      </aside>
+    </div>
+
+    <!-- 2. 학급 랭킹 전광판 뷰 -->
+    <div id="rankingView" class="hidden w-full h-full p-4 md:p-6 overflow-y-auto bg-slate-950 flex flex-col">
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
+            <i class="fa-solid fa-trophy"></i>
+          </div>
+          <div>
+            <h2 class="text-base font-black text-slate-100"><span id="rankingRoomTitle" class="text-amber-300">연수학급</span> 실시간 4대 랭킹 전광판</h2>
+            <p class="text-[11px] text-slate-400">우측 버튼 또는 표 제목을 클릭해 [총 수익률 · 총자산 · 실현손익(금액) · 실현수익률] 4가지 순위를 모두 비교하세요.</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <div class="flex items-center bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs flex-wrap gap-1">
+            <button type="button" id="rankSort_profitRate" onclick="setRankingSort('profitRate')" class="px-2.5 py-1.5 rounded-lg font-black transition-all bg-rose-600 text-white shadow cursor-pointer">
+              📈 총 수익률순
+            </button>
+            <button type="button" id="rankSort_totalAsset" onclick="setRankingSort('totalAsset')" class="px-2.5 py-1.5 rounded-lg font-bold text-slate-400 hover:text-white transition-all cursor-pointer">
+              💰 총자산순
+            </button>
+            <button type="button" id="rankSort_realizedProfit" onclick="setRankingSort('realizedProfit')" class="px-2.5 py-1.5 rounded-lg font-bold text-slate-400 hover:text-white transition-all cursor-pointer">
+              💵 실현손익(금액)순
+            </button>
+            <button type="button" id="rankSort_realizedRate" onclick="setRankingSort('realizedRate')" class="px-2.5 py-1.5 rounded-lg font-bold text-slate-400 hover:text-white transition-all cursor-pointer">
+              🎯 실현수익률순
+            </button>
+          </div>
+          <span class="text-xs text-slate-400 hidden xl:inline">초기지원금: <strong class="text-slate-200 font-mono" id="initSeedMoneyDisplay">0원</strong></span>
+        </div>
+      </div>
+
+      <div class="flex-1 bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl flex flex-col">
+        <div class="overflow-x-auto flex-1">
+          <table class="w-full text-xs text-left">
+            <thead class="bg-slate-950/80 text-slate-400 border-b border-slate-800 font-bold sticky top-0">
+              <tr>
+                <th class="py-3 px-3 text-center w-16">순위</th>
+                <th class="py-3 px-3 text-center w-24">전일 대비</th>
+                <th class="py-3 px-3">학생 이름</th>
+                <th class="py-3 px-3 text-right">보유 예수금(페이)</th>
+                <th class="py-3 px-3 text-right">주식 평가액</th>
+                <th class="py-3 px-3 text-right cursor-pointer hover:text-amber-300" onclick="setRankingSort('totalAsset')">총 평가자산 ↕</th>
+                <th class="py-3 px-3 text-right cursor-pointer hover:text-rose-400" onclick="setRankingSort('profitRate')">총 수익률 ↕</th>
+                <th class="py-3 px-3 text-right cursor-pointer hover:text-emerald-400 border-l border-slate-800/80" onclick="setRankingSort('realizedProfit')">실현손익(금액) ↕</th>
+                <th class="py-3 px-3 text-right cursor-pointer hover:text-indigo-400" onclick="setRankingSort('realizedRate')">실현수익률 ↕</th>
+                <th class="py-3 px-3 text-center">계좌 관리</th>
+              </tr>
+            </thead>
+            <tbody id="classRankingTableBody" class="divide-y divide-slate-800/60 font-mono"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 설명서 모달 -->
+  <div id="tutorialModal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-200">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-3xl shadow-2xl flex flex-col overflow-hidden text-xs p-5 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="font-extrabold text-base text-amber-300"><i class="fa-solid fa-book-open mr-1.5"></i>4대 랭킹 & 실현손익 산정 안내</h3>
+        <button type="button" onclick="closeTutorialModal()" class="text-slate-400 hover:text-white text-lg cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="space-y-3 text-slate-300 leading-relaxed">
+        <p>• <strong>1. 총 수익률순 / 2. 총자산순</strong>: 전체 자산 규모와 순수 원금 대비 전체 주식 투자 성과(미실현 평가손익 포함)를 보여줍니다.</p>
+        <p>• <strong>3. 실현손익(금액)순 / 4. 실현수익률순</strong>: 주식을 매수한 뒤 실제로 <strong>매도(판매)하여 확정 지은 순수익금</strong>과 <strong>실제 투자원금 대비 확정 수익률(%)</strong> 순위입니다.</p>
+        <p>• <strong>학급페이(ClassPay)와 완전 분리</strong>:初期 예수금이 0원에서 시작하며, 선생님께 급여나 상점을 받아 예수금이 늘어나거나 매점에서 간식을 사 먹어 예수금이 줄어들어도 주식 수익률과 실현손익은 왜곡되지 않습니다.</p>
+      </div>
+      <div class="flex justify-end pt-2">
+        <button type="button" onclick="closeTutorialModal()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl cursor-pointer">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 상한가 / 하한가 긴급 속보 팝업 -->
+  <div id="limitAlertModal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-300">
+    <div class="glass-panel w-full max-w-md p-6 rounded-3xl border border-amber-500/50 shadow-2xl text-center transform scale-95 transition-transform duration-300">
+      <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-600 text-white font-black text-[11px] animate-pulse mb-3">
+        <i class="fa-solid fa-bullhorn"></i><span>[긴급 속보] 가격제한폭(±30%) 도달 종목 발생</span>
+      </div>
+      <div class="text-3xl mb-1">🚨</div>
+      <h3 class="text-xl font-black text-slate-100">상한가 / 하한가 종목 뉴스</h3>
+      <div id="limitNewsItemsContainer" class="space-y-2.5 my-4 max-h-60 overflow-y-auto text-left"></div>
+      <button type="button" onclick="closeLimitModal()" class="w-full py-3 bg-gradient-to-r from-amber-500 to-rose-600 text-white font-extrabold rounded-xl text-xs shadow-lg cursor-pointer">
+        확인 후 일일 결산 보기
+      </button>
+    </div>
+  </div>
+
+  <!-- 하루 마감 일일 결산 -->
+  <div id="dailySummaryModal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-300">
+    <div class="glass-panel w-full max-w-lg p-6 rounded-3xl border border-slate-700 shadow-2xl transform scale-95 transition-transform duration-300">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <span class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold"><i class="fa-solid fa-newspaper"></i></span>
+          <div>
+            <h3 class="text-base font-black text-slate-100" id="summaryModalTitle">일일 결산 브리핑</h3>
+            <p class="text-[11px] text-slate-400">당일 시장 수익률 급등 & 급락 종목</p>
+          </div>
+        </div>
+        <span class="text-xs font-mono font-bold text-indigo-400 px-2.5 py-1 rounded-lg bg-indigo-950">KOSDAQ 클래스</span>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 my-4">
+        <div class="bg-slate-900/90 rounded-2xl p-3.5 border border-rose-900/40 space-y-2">
+          <div class="flex items-center gap-1.5 text-xs font-black text-rose-400 border-b border-rose-900/30 pb-1.5">
+            <i class="fa-solid fa-arrow-trend-up"></i><span>수익률 BEST 3 🚀</span>
+          </div>
+          <div id="bestListContainer" class="space-y-1.5 text-xs font-mono"></div>
+        </div>
+        <div class="bg-slate-900/90 rounded-2xl p-3.5 border border-blue-900/40 space-y-2">
+          <div class="flex items-center gap-1.5 text-xs font-black text-blue-400 border-b border-blue-900/30 pb-1.5">
+            <i class="fa-solid fa-arrow-trend-down"></i><span>수익률 WORST 3 📉</span>
+          </div>
+          <div id="worstListContainer" class="space-y-1.5 text-xs font-mono"></div>
+        </div>
+      </div>
+
+      <div class="bg-slate-950/80 p-3 rounded-xl border border-slate-800 flex items-center justify-between text-xs mb-4">
+        <span class="text-slate-400"><strong id="summaryStudentName" class="text-indigo-300">-</strong> 님의 하루 자산 변동</span>
+        <span id="summaryStudentDailyReturn" class="font-mono font-bold text-sm text-emerald-400">+0원 (+0.00%)</span>
+      </div>
+
+      <button type="button" onclick="closeDailySummaryModal()" class="w-full py-3 bg-gradient-to-r from-emerald-600 to-indigo-600 text-white font-extrabold rounded-xl text-xs shadow-lg cursor-pointer">
+        다음 날 장 시작하기
+      </button>
+    </div>
+  </div>
+
+  <!-- 학급 설정 & 학생별 비밀번호(PIN) 설정 모달 -->
+  <div id="setupModal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-200">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-3xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden text-xs">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-chalkboard-user text-amber-400 text-sm"></i>
+          <h3 class="font-extrabold text-sm text-slate-100"><span id="setupModalRoomBadge" class="text-amber-300">연수학급</span> 환경 설정</h3>
+        </div>
+        <button type="button" onclick="closeClassSetupModal()" class="text-slate-400 hover:text-slate-200 cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <div class="p-4 flex-1 overflow-y-auto space-y-5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+          <div>
+            <label class="font-bold text-slate-200 block mb-1"><i class="fa-solid fa-tag text-amber-400 mr-1"></i>학급 표시 이름 (별칭)</label>
+            <input type="text" id="setupRoomCustomTitleInput" placeholder="예: 6학년 1반"
+              class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200 font-bold outline-none focus:border-indigo-500 select-text">
+          </div>
+          <div>
+            <label class="font-bold text-slate-200 block mb-1"><i class="fa-solid fa-key text-rose-400 mr-1"></i>교사 전용 비밀번호</label>
+            <input type="text" id="setupRoomTeacherPinInput" placeholder="기본값: 10101"
+              class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-amber-300 font-mono font-bold outline-none focus:border-indigo-500 select-text">
+          </div>
+        </div>
+
+        <div class="space-y-2 bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <label class="font-bold text-slate-200 flex items-center gap-1.5">
+              <i class="fa-solid fa-user-lock text-indigo-400"></i>우리 반 학생 명단 및 개인 비밀번호 설정
+            </label>
+            <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
+              <button type="button" onclick="autoAssignPins('seq')" class="px-2 py-1 rounded bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700 font-bold cursor-pointer">번호순 비번(1001~)</button>
+              <button type="button" onclick="autoAssignPins('random')" class="px-2 py-1 rounded bg-amber-950 hover:bg-amber-900 text-amber-300 border border-amber-700 font-bold cursor-pointer">랜덤 4자리 부여</button>
+              <button type="button" onclick="autoAssignPins('1234')" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold cursor-pointer">전원 1234 통일</button>
+            </div>
+          </div>
+          <p class="text-[11px] text-slate-400">
+            <code class="text-amber-300 font-bold">이름:비밀번호</code> 형식으로 입력하며 쉼표(,)로 구분합니다. (비밀번호 생략 시 기본값 <code class="text-emerald-400">1234</code>)
+          </p>
+          <textarea id="setupStudentsInput" rows="4" placeholder="제임스:1234, 마이클:1234, 데니스:1234..."
+            class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-slate-200 outline-none focus:border-indigo-500 font-mono select-text leading-relaxed"></textarea>
+          
+          <div class="flex items-center justify-between pt-1 text-slate-400">
+            <span>시작 지원 예수금 (기본 0원):</span>
+            <div class="flex items-center gap-1">
+              <input type="number" id="setupSeedMoneyInput" value="0" step="100000" class="w-32 bg-slate-900 border border-slate-800 rounded px-2 py-1 text-right text-slate-200 font-mono select-text">
+              <span>원</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-2 bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+          <div class="flex items-center justify-between">
+            <div>
+              <label class="font-bold text-slate-200 flex items-center gap-1.5"><i class="fa-solid fa-building text-amber-400"></i>우리 반 거래소 20개 종목 및 비밀 추세 조작</label>
+            </div>
+            <button type="button" onclick="restoreDefaultStockNames()" class="text-rose-400 hover:underline text-[11px] cursor-pointer">전 종목 기본값(랜덤 시작가)으로 복원</button>
+          </div>
+          <div id="setupStockGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1"></div>
+        </div>
+      </div>
+
+      <div class="p-4 border-t border-slate-800 flex items-center justify-between bg-slate-900/90">
+        <button type="button" onclick="resetAllGameData()" class="px-3 py-2 rounded-lg bg-rose-950 hover:bg-rose-900 text-rose-300 font-bold border border-rose-800 cursor-pointer">
+          <i class="fa-solid fa-triangle-exclamation mr-1"></i>전체 데이터 1일차(0원) 초기화
+        </button>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="closeClassSetupModal()" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold cursor-pointer">닫기</button>
+          <button type="button" onclick="saveClassSetup()" class="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-black shadow-md cursor-pointer">학급 설정 저장 및 배포</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* =================================================================================
+       ★ [연수 선생님 필수 수정 구간] 본인 학급의 Firebase Realtime Database 주소 입력 ★
+       ---------------------------------------------------------------------------------
+       1. 아래 DEFAULT_FIREBASE_DB_URL의 큰따옴표(" ") 안에 선생님의 Firebase DB 주소를 넣으세요.
+       2. 주의: pay.html 파일의 같은 위치에도 동일한 주소를 입력해야 지갑과 연동됩니다!
+       ================================================================================= */
+    const DEFAULT_FIREBASE_DB_URL = "https://my-class-stock-default-rtdb.firebaseio.com/";
+
+    // 데이터베이스 내 저장 폴더명 (기존 학급 데이터와 섞이지 않도록 연수용 경로로 분리됨)
+    const FIREBASE_ROOT_PATH = "kosdaq_training_room";
+
+    const STORAGE_KEY_FIREBASE_URL = 'class_stock_training_fb_url_v1';
+    const STORAGE_KEY_CURRENT_ROOM = 'class_stock_training_room_v1';
+
+    // 1개 반 단일 체제 설정
+    const ROOM_LABELS = {
+      class_1: "연수학급"
+    };
+
+    function createRandomStartPrice(min, max) {
+      const raw = Math.floor(Math.random() * (max - min + 1)) + min;
+      return Math.round(raw / 500) * 500;
+    }
+
+    // 20개 가상 기업 목록 (시작가는 초기화 시 랜덤 생성 기능 포함)
+    const DEFAULT_STOCKS = [
+      { code: "100100", name: "네오테크", price: createRandomStartPrice(25000, 95000), trend: "none" },
+      { code: "100200", name: "블루오션바이오", price: createRandomStartPrice(40000, 150000), trend: "none" },
+      { code: "100300", name: "스타라이트엔터", price: createRandomStartPrice(18000, 75000), trend: "none" },
+      { code: "100400", name: "퀀텀로보틱스", price: createRandomStartPrice(55000, 180000), trend: "none" },
+      { code: "100500", name: "그린에너지솔루션", price: createRandomStartPrice(30000, 120000), trend: "none" },
+      { code: "100600", name: "코스모스항공", price: createRandomStartPrice(45000, 160000), trend: "none" },
+      { code: "100700", name: "실버라인모빌리티", price: createRandomStartPrice(22000, 88000), trend: "none" },
+      { code: "100800", name: "오즈메타버스", price: createRandomStartPrice(15000, 65000), trend: "none" },
+      { code: "100900", name: "제니스제약", price: createRandomStartPrice(35000, 130000), trend: "none" },
+      { code: "101000", name: "아이언스틸", price: createRandomStartPrice(28000, 92000), trend: "none" },
+      { code: "101100", name: "퓨처케미칼", price: createRandomStartPrice(32000, 110000), trend: "none" },
+      { code: "101200", name: "썬더배터리", price: createRandomStartPrice(60000, 210000), trend: "none" },
+      { code: "101300", name: "가디언라이프", price: createRandomStartPrice(19000, 64000), trend: "none" },
+      { code: "101400", name: "유니온뱅크", price: createRandomStartPrice(24000, 72000), trend: "none" },
+      { code: "101500", name: "글로벌트레이드", price: createRandomStartPrice(21000, 83000), trend: "none" },
+      { code: "101600", name: "드림푸드", price: createRandomStartPrice(12000, 54000), trend: "none" },
+      { code: "101700", name: "스마트기어", price: createRandomStartPrice(27000, 96000), trend: "none" },
+      { code: "101800", name: "에코소재", price: createRandomStartPrice(38000, 140000), trend: "none" },
+      { code: "101900", name: "나노반도체", price: createRandomStartPrice(50000, 195000), trend: "none" },
+      { code: "102000", name: "픽셀게임즈", price: createRandomStartPrice(16000, 78000), trend: "none" }
+    ];
+
+    // 영어 3글자 스타일 이름 25명
+    const DEFAULT_STUDENTS = [
+      "제임스", "마이클", "데니스", "루카스", "마커스",
+      "펠릭스", "알렉스", "토마스", "찰스", "맥스",
+      "에반스", "다비드", "헨리", "리차드", "도날드",
+      "로버트", "케네스", "크리스", "저스틴", "마틴",
+      "케빈", "스티브", "조나단", "올리버", "다니엘"
+    ];
+
+    const UPPER_LIMIT_NEWS = [
+      "차세대 신기술 세계 최초 상용화 성공 소식에 장 시작과 동시에 매수 잔량 폭발!",
+      "글로벌 빅테크 기업과 수조 원 규모의 초대형 독점 공급 계약 체결 공시!",
+      "임상 3상 시험 전격 통과! 신약 허가 기대감에 상한가 직행!",
+      "기관 및 외국인 투자자의 대규모 매수세 유입으로 상한가 안착!",
+      "정부의 파격적인 산업 육성 정책 및 대규모 세제 혜택 수혜주로 지목!"
+    ];
+    const LOWER_LIMIT_NEWS = [
+      "회계 감사 의견 거절 및 경영진 횡령·배임 혐의 조사 착수설에 하한가 추락!",
+      "주력 생산공장 가동 중단! 분기 실적 어닝 쇼크에 투매 물량 쏟아져.",
+      "핵심 신기술 임상 및 테스트 실패 통보! 실망 매물 쏟아지며 하한가로 곤두박질.",
+      "대규모 유상증자 결정 공시로 주주가치 희석 우려에 하한가 직행!",
+      "핵심 고객사와의 독점 공급 계약 파기 소식에 하한가 잔량 급증!"
+    ];
+
+    let currentRoomId = "class_1";
+    let roomCustomTitle = "";
+    let roomTeacherPin = "10101";
+
+    let marketDay = 1;
+    let seedMoney = 0; // 초기 예수금 0원 시작
+    let stocks = [];
+    let students = {};
+    let currentStudentName = "";
+    let pendingPinStudentName = "";
+    let selectedStockCode = null;
+    let currentOrderType = 'buy';
+    let chartInstance = null;
+    let economyPhase = 3;
+    let prevTurnStudentAssets = {};
+    let prevTurnStudentRanks = {};
+    let rankingSortMode = 'profitRate';
+
+    let isTeacherMode = false;
+    let firebaseDb = null;
+    let currentRoomRef = null;
+    let isCloudConnected = false;
+    let isInitialRoomSync = true;
+    let toastTimer = null;
+
+    const ECON_CONFIGS = {
+      1: { label: "1단계: 경제 공황 (대폭락장 📉)", color: "text-rose-400", bias: -0.16, volatility: 0.08, extremeChance: 0.12, extremeType: 'lower' },
+      2: { label: "2단계: 경기 침체 (약세장 🌧️)", color: "text-blue-400", bias: -0.06, volatility: 0.06, extremeChance: 0.04, extremeType: 'lower' },
+      3: { label: "3단계: 보통 (랜덤 시장 ⚖️)", color: "text-amber-300", bias: 0.00, volatility: 0.07, extremeChance: 0.03, extremeType: 'random' },
+      4: { label: "4단계: 경기 회복 (호황기 🌤️)", color: "text-emerald-400", bias: 0.06, volatility: 0.06, extremeChance: 0.04, extremeType: 'upper' },
+      5: { label: "5단계: 경제 대호황 (불장 🚀)", color: "text-rose-500", bias: 0.16, volatility: 0.08, extremeChance: 0.12, extremeType: 'upper' }
+    };
+
+    function openMyPayWallet() {
+      location.href = `pay.html?room=1&name=${encodeURIComponent(currentStudentName)}`;
+    }
+
+    function showOrderToast(message, type = 'success') {
+      const banner = document.getElementById('orderToastBanner');
+      const icon = document.getElementById('orderToastIcon');
+      const text = document.getElementById('orderToastText');
+      if (!banner) return;
+      if (toastTimer) clearTimeout(toastTimer);
+      text.textContent = message;
+      if (type === 'error') {
+        banner.className = "fixed top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-5 py-3 rounded-2xl shadow-2xl border bg-rose-950/95 border-rose-500 text-rose-200 text-xs sm:text-sm font-black transition-all duration-200";
+        icon.className = "fa-solid fa-triangle-exclamation text-rose-400 text-base";
+      } else if (type === 'sell') {
+        banner.className = "fixed top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-5 py-3 rounded-2xl shadow-2xl border bg-blue-950/95 border-blue-400 text-blue-100 text-xs sm:text-sm font-black transition-all duration-200";
+        icon.className = "fa-solid fa-circle-check text-blue-400 text-base";
+      } else {
+        banner.className = "fixed top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-5 py-3 rounded-2xl shadow-2xl border bg-emerald-950/95 border-emerald-400 text-emerald-100 text-xs sm:text-sm font-black transition-all duration-200";
+        icon.className = "fa-solid fa-circle-check text-emerald-400 text-base";
+      }
+      toastTimer = setTimeout(() => {
+        banner.classList.add('hidden');
+        banner.classList.remove('flex');
+      }, 3000);
+    }
+
+    function getLocalKeyForRoom(roomId) { return `class_stock_training_game_${roomId}`; }
+    function getSnapshotKeyForRoom(roomId) { return `class_stock_training_undo_${roomId}`; }
+    function getMyNameKeyForRoom(roomId) { return `class_stock_training_my_name_${roomId}`; }
+    function getFirebasePathForRoom() {
+      return FIREBASE_ROOT_PATH;
+    }
+
+    function updateRoomSelectorUI() {
+      const shortName = roomCustomTitle || ROOM_LABELS[currentRoomId] || "연수학급";
+      const displayTitle = `${shortName} 거래소`;
+      const badgeEl = document.getElementById('headerRoomBadge');
+      if (badgeEl) badgeEl.textContent = `${shortName} 서버`;
+      document.getElementById('loginRoomTitleDisplay').textContent = displayTitle;
+      document.getElementById('headerClassCustomTitle').textContent = `${shortName} 실시간 모의투자`;
+      document.getElementById('hudRoomBadge').textContent = shortName;
+      document.getElementById('rankingRoomTitle').textContent = shortName;
+      document.getElementById('macroRoomBadge').textContent = `${shortName} 교사 컨트롤`;
+      document.getElementById('authModalRoomName').textContent = shortName;
+      document.getElementById('setupModalRoomBadge').textContent = shortName;
+    }
+
+    function copyRoomShareLink() {
+      const shareUrl = `${window.location.origin}${window.location.pathname}`;
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        showOrderToast(`🔗 학급 접속 링크가 복사되었습니다!`, 'success');
+      });
+    }
+
+    function getFirebaseUrl() {
+      const urlParam = new URLSearchParams(window.location.search).get('db');
+      if (urlParam) {
+        localStorage.setItem(STORAGE_KEY_FIREBASE_URL, urlParam);
+        return urlParam;
+      }
+      return localStorage.getItem(STORAGE_KEY_FIREBASE_URL) || DEFAULT_FIREBASE_DB_URL;
+    }
+
+    function connectFirebaseCloud(dbUrl) {
+      if (!dbUrl || !dbUrl.startsWith("https://")) {
+        updateCloudBadgeUI(false);
+        return;
+      }
+      try {
+        if (!firebase.apps.length) firebase.initializeApp({ databaseURL: dbUrl });
+        firebaseDb = firebase.database();
+        if (currentRoomRef) currentRoomRef.off();
+
+        isInitialRoomSync = true;
+        const path = getFirebasePathForRoom(currentRoomId);
+        currentRoomRef = firebaseDb.ref(path);
+
+        currentRoomRef.on('value', (snapshot) => {
+          const cloudData = snapshot.val();
+          updateCloudBadgeUI(true);
+
+          if (!cloudData || !cloudData.stocks || !cloudData.students) {
+            isInitialRoomSync = false;
+            if (!stocks || stocks.length === 0) setupDefaultStocks();
+            if (!students || Object.keys(students).length === 0) setupDefaultStudents();
+            pushFullStateToCloud();
+            return;
+          }
+
+          const prevDay = marketDay;
+          const incomingDay = Number(cloudData.marketDay) || 1;
+          marketDay = incomingDay;
+          seedMoney = cloudData.seedMoney !== undefined ? Number(cloudData.seedMoney) : 0;
+          economyPhase = Number(cloudData.economyPhase) || 3;
+          roomCustomTitle = cloudData.roomCustomTitle || "";
+          roomTeacherPin = cloudData.roomTeacherPin ? String(cloudData.roomTeacherPin) : "10101";
+          prevTurnStudentAssets = cloudData.prevTurnStudentAssets || {};
+          prevTurnStudentRanks = cloudData.prevTurnStudentRanks || {};
+
+          const rawStocks = Array.isArray(cloudData.stocks) ? cloudData.stocks : Object.values(cloudData.stocks);
+          stocks = rawStocks.filter(Boolean).map(s => ({
+            ...s,
+            code: String(s.code),
+            price: Number(s.price) || 1000,
+            basePrice: Number(s.basePrice || s.price) || 1000,
+            change: Number(s.change) || 0,
+            rate: Number(s.rate) || 0,
+            trend: s.trend || "none",
+            history: Array.isArray(s.history) ? s.history.map(Number) : [Number(s.price) || 1000]
+          }));
+
+          const restoredStudents = {};
+          Object.entries(cloudData.students).forEach(([sName, sObj]) => {
+            if (!sObj) return;
+            const cleanHoldings = {};
+            if (sObj.holdings && typeof sObj.holdings === 'object') {
+              Object.entries(sObj.holdings).forEach(([kCode, hVal]) => {
+                if (hVal && Number(hVal.qty) > 0) {
+                  cleanHoldings[String(kCode)] = {
+                    qty: Number(hVal.qty),
+                    totalCost: Number(hVal.totalCost) || 0
+                  };
+                }
+              });
+            }
+            restoredStudents[sName] = {
+              cash: sObj.cash !== undefined ? Number(sObj.cash) : seedMoney,
+              netDeposit: Number(sObj.netDeposit) || 0,
+              realizedProfit: Number(sObj.realizedProfit) || 0,
+              realizedCost: Number(sObj.realizedCost) || 0,
+              pin: sObj.pin ? String(sObj.pin) : "1234",
+              holdings: cleanHoldings
+            };
+          });
+          students = restoredStudents;
+
+          const savedMyName = localStorage.getItem(getMyNameKeyForRoom(currentRoomId));
+          if (!currentStudentName || !students[currentStudentName]) {
+            currentStudentName = (savedMyName && students[savedMyName]) ? savedMyName : Object.keys(students)[0];
+          }
+          if (!selectedStockCode || !stocks.some(x => x.code === selectedStockCode)) {
+            selectedStockCode = stocks[0] ? stocks[0].code : null;
+          }
+
+          saveLocalMirror();
+          updateRoomSelectorUI();
+          updateEconomyPhaseUI();
+          renderAll();
+          renderStudentLoginGrid();
+
+          const isLoginScreenVisible = !document.getElementById('studentLoginOverlay').classList.contains('hidden');
+          if (!isInitialRoomSync && !isLoginScreenVisible && !isTeacherMode && incomingDay === prevDay + 1) {
+            showDailySummaryModal(incomingDay - 1);
+          }
+          isInitialRoomSync = false;
+        }, (error) => {
+          console.error("Firebase 읽기 권한 오류:", error);
+          updateCloudBadgeUI(false);
+          showOrderToast("⚠️ 클라우드 읽기 권한 오류: Firebase 규칙(.read: true)을 확인하세요!", "error");
+        });
+      } catch (err) {
+        console.error("Firebase 연결 오류:", err);
+        updateCloudBadgeUI(false);
+      }
+    }
+
+    function updateCloudBadgeUI(connected) {
+      isCloudConnected = connected;
+      const badge = document.getElementById('cloudStatusBadge');
+      const dot = document.getElementById('cloudStatusDot');
+      const txt = document.getElementById('cloudStatusText');
+      const loginBadge = document.getElementById('loginCloudBadge');
+      const labelName = roomCustomTitle || ROOM_LABELS[currentRoomId];
+
+      if (connected) {
+        badge.className = "hidden sm:flex text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/40 font-black items-center gap-1";
+        dot.className = "w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping";
+        txt.textContent = "실시간 연동 중";
+        if (loginBadge) {
+          loginBadge.className = "px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-black text-[10px]";
+          loginBadge.textContent = `🟢 ${labelName} 서버 연결됨`;
+        }
+      } else {
+        badge.className = "hidden sm:flex text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-bold items-center gap-1";
+        dot.className = "w-1.5 h-1.5 rounded-full bg-amber-400";
+        txt.textContent = "로컬 모드";
+        if (loginBadge) {
+          loginBadge.className = "px-2.5 py-1 rounded-full bg-slate-800 text-amber-300 font-bold text-[10px]";
+          loginBadge.textContent = "단독 실행 모드";
+        }
+      }
+    }
+
+    function pushFullStateToCloud() {
+      saveLocalMirror();
+      if (isCloudConnected && firebaseDb) {
+        const path = getFirebasePathForRoom(currentRoomId);
+        firebaseDb.ref(path).update({
+          roomCustomTitle, roomTeacherPin, marketDay, seedMoney, stocks, students,
+          economyPhase, prevTurnStudentAssets, prevTurnStudentRanks, updatedAt: Date.now()
+        }).catch(err => {
+          console.error("클라우드 저장 실패:", err);
+          showOrderToast("⚠️ 클라우드 쓰기 거부됨: Firebase 규칙(.write: true)을 확인하세요!", "error");
+        });
+      }
+    }
+
+    function pushSingleStudentToCloud(studentName) {
+      saveLocalMirror();
+      if (isCloudConnected && firebaseDb && students[studentName]) {
+        const path = getFirebasePathForRoom(currentRoomId);
+        const st = students[studentName];
+        firebaseDb.ref(`${path}/students/${studentName}`).update({
+          cash: Number(st.cash) || 0,
+          netDeposit: Number(st.netDeposit) || 0,
+          realizedProfit: Number(st.realizedProfit) || 0,
+          realizedCost: Number(st.realizedCost) || 0,
+          pin: String(st.pin || "1234"),
+          holdings: st.holdings || {}
+        }).catch(err => {
+          console.error("학생 주문 클라우드 반영 실패:", err);
+          showOrderToast("⚠️ 서버 저장 실패! Firebase 규칙(.write: true)을 확인해주세요.", "error");
+        });
+      }
+    }
+
+    function saveLocalMirror() {
+      localStorage.setItem(getLocalKeyForRoom(currentRoomId), JSON.stringify({
+        roomCustomTitle, roomTeacherPin, marketDay, seedMoney, stocks, students, currentStudentName, economyPhase, prevTurnStudentAssets, prevTurnStudentRanks
+      }));
+    }
+
+    function renderStudentLoginGrid() {
+      const grid = document.getElementById('loginStudentGrid');
+      if (!grid) return;
+      const names = Object.keys(students);
+      grid.innerHTML = names.map(name => `
+        <button type="button" onclick="promptStudentPin('${name}')"
+          class="py-2.5 px-2 rounded-2xl bg-slate-900 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-400 text-slate-100 font-black text-xs sm:text-sm shadow transition-all active:scale-95 cursor-pointer truncate flex items-center justify-center gap-1">
+          <span>${name}</span>
+        </button>
+      `).join('');
+    }
+
+    function promptStudentPin(name) {
+      if (isTeacherMode) {
+        selectMyStudentAccount(name);
+        return;
+      }
+      pendingPinStudentName = name;
+      const labelName = roomCustomTitle || ROOM_LABELS[currentRoomId];
+      document.getElementById('pinTargetStudentName').textContent = `[${labelName}] ${name}`;
+      document.getElementById('studentPinInput').value = "";
+      document.getElementById('loginStudentGrid').classList.add('hidden');
+      const pinBox = document.getElementById('studentPinPromptBox');
+      pinBox.classList.remove('hidden');
+      pinBox.classList.add('flex');
+      setTimeout(() => document.getElementById('studentPinInput').focus(), 80);
+    }
+
+    function cancelStudentPinPrompt() {
+      pendingPinStudentName = "";
+      const pinBox = document.getElementById('studentPinPromptBox');
+      pinBox.classList.add('hidden');
+      pinBox.classList.remove('flex');
+      document.getElementById('loginStudentGrid').classList.remove('hidden');
+    }
+
+    function confirmStudentPinLogin() {
+      if (!pendingPinStudentName || !students[pendingPinStudentName]) return;
+      const inputPin = document.getElementById('studentPinInput').value.trim();
+      const correctPin = String(students[pendingPinStudentName].pin || "1234");
+      if (inputPin === correctPin) {
+        const targetName = pendingPinStudentName;
+        cancelStudentPinPrompt();
+        selectMyStudentAccount(targetName);
+        showOrderToast(`👋 환영합니다! [${targetName}] 계좌에 접속했습니다.`, 'success');
+      } else {
+        showOrderToast("❌ 비밀번호가 일치하지 않습니다! 다시 확인해 주세요.", "error");
+        document.getElementById('studentPinInput').value = "";
+        document.getElementById('studentPinInput').focus();
+      }
+    }
+
+    function selectMyStudentAccount(name) {
+      currentStudentName = name;
+      if (!students[currentStudentName]) {
+        students[currentStudentName] = { cash: seedMoney, netDeposit: 0, realizedProfit: 0, realizedCost: 0, pin: "1234", holdings: {} };
+      }
+      localStorage.setItem(getMyNameKeyForRoom(currentRoomId), name);
+      document.getElementById('studentLoginOverlay').classList.add('hidden');
+      renderAll();
+    }
+
+    function openStudentLoginOverlay() {
+      cancelStudentPinPrompt();
+      renderStudentLoginGrid();
+      document.getElementById('studentLoginOverlay').classList.remove('hidden');
+    }
+
+    function onTeacherBtnClick() {
+      if (isTeacherMode) {
+        isTeacherMode = false;
+        applyTeacherModeUI();
+        showOrderToast("학생 화면 모드로 전환되었습니다.", "sell");
+      } else {
+        openTeacherAuthModal();
+      }
+    }
+
+    function openTeacherAuthModal() {
+      document.getElementById('teacherPwInput').value = "";
+      document.getElementById('firebaseUrlInput').value = getFirebaseUrl();
+      document.getElementById('teacherAuthModal').classList.remove('hidden');
+      document.getElementById('teacherAuthModal').classList.add('flex');
+      setTimeout(() => document.getElementById('teacherPwInput').focus(), 100);
+    }
+
+    function closeTeacherAuthModal() {
+      document.getElementById('teacherAuthModal').classList.add('hidden');
+      document.getElementById('teacherAuthModal').classList.remove('flex');
+    }
+
+    function confirmTeacherLogin() {
+      const pw = document.getElementById('teacherPwInput').value.trim();
+      const dbUrl = document.getElementById('firebaseUrlInput').value.trim();
+      if (pw !== String(roomTeacherPin || "10101") && pw !== "10101") {
+        showOrderToast("❌ 교사 관리자 비밀번호가 일치하지 않습니다!", "error");
+        return;
+      }
+      if (dbUrl) {
+        localStorage.setItem(STORAGE_KEY_FIREBASE_URL, dbUrl);
+        connectFirebaseCloud(dbUrl);
+      }
+      isTeacherMode = true;
+      closeTeacherAuthModal();
+      document.getElementById('studentLoginOverlay').classList.add('hidden');
+      applyTeacherModeUI();
+      showOrderToast("👑 교사 관리자 모드가 활성화되었습니다!", "success");
+    }
+
+    function applyTeacherModeUI() {
+      const actionGroup = document.getElementById('teacherActionGroup');
+      const macroBar = document.getElementById('teacherMacroBar');
+      const lockIcon = document.getElementById('teacherLockIcon');
+      const btnLabel = document.getElementById('teacherBtnLabel');
+      const btn = document.getElementById('teacherModeBtn');
+      const cashAdjustBtn = document.getElementById('teacherCashAdjustBtn');
+      const realizedAdjustBtn = document.getElementById('teacherRealizedAdjustBtn');
+
+      if (isTeacherMode) {
+        actionGroup.classList.remove('hidden'); actionGroup.classList.add('flex');
+        macroBar.classList.remove('hidden'); macroBar.classList.add('flex');
+        lockIcon.className = "fa-solid fa-unlock text-amber-400";
+        btnLabel.textContent = "교사 ON";
+        btn.className = "px-2.5 py-1.5 rounded-xl bg-amber-950/90 text-amber-300 text-xs font-black border border-amber-500/60 flex items-center gap-1 cursor-pointer";
+        if (cashAdjustBtn) { cashAdjustBtn.classList.remove('hidden'); cashAdjustBtn.classList.add('flex'); }
+        if (realizedAdjustBtn) { realizedAdjustBtn.classList.remove('hidden'); realizedAdjustBtn.classList.add('flex'); }
+      } else {
+        actionGroup.classList.add('hidden'); actionGroup.classList.remove('flex');
+        macroBar.classList.add('hidden'); macroBar.classList.remove('flex');
+        lockIcon.className = "fa-solid fa-lock";
+        btnLabel.textContent = "교사 모드";
+        btn.className = "px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold border border-slate-700 flex items-center gap-1 cursor-pointer";
+        if (cashAdjustBtn) { cashAdjustBtn.classList.add('hidden'); cashAdjustBtn.classList.remove('flex'); }
+        if (realizedAdjustBtn) { realizedAdjustBtn.classList.add('hidden'); realizedAdjustBtn.classList.remove('flex'); }
+      }
+      renderAll();
+    }
+
+    function loadRoomLocalData(roomId) {
+      const saved = localStorage.getItem(getLocalKeyForRoom(roomId));
+      if (saved) {
+        try {
+          const data = JSON.parse(saved);
+          roomCustomTitle = data.roomCustomTitle || "";
+          roomTeacherPin = data.roomTeacherPin || "10101";
+          marketDay = Number(data.marketDay) || 1;
+          seedMoney = data.seedMoney !== undefined ? Number(data.seedMoney) : 0;
+          stocks = data.stocks || [];
+          students = data.students || {};
+          currentStudentName = data.currentStudentName || Object.keys(students)[0];
+          economyPhase = Number(data.economyPhase) || 3;
+          prevTurnStudentAssets = data.prevTurnStudentAssets || {};
+          prevTurnStudentRanks = data.prevTurnStudentRanks || {};
+        } catch (e) { setupDefaults(); }
+      } else { setupDefaults(); }
+
+      if (!stocks || stocks.length === 0) setupDefaultStocks();
+      stocks.forEach(s => { if (!s.trend) s.trend = "none"; });
+      if (!students || Object.keys(students).length === 0) setupDefaultStudents();
+      Object.values(students).forEach(st => {
+        if (!st.pin) st.pin = "1234";
+        if (st.netDeposit === undefined) st.netDeposit = 0;
+        if (st.realizedProfit === undefined) st.realizedProfit = 0;
+        if (st.realizedCost === undefined) st.realizedCost = 0;
+        if (!st.holdings) st.holdings = {};
+      });
+      if (!selectedStockCode || !stocks.some(x => x.code === selectedStockCode)) {
+        selectedStockCode = stocks[0].code;
+      }
+
+      const savedMyName = localStorage.getItem(getMyNameKeyForRoom(roomId));
+      if (savedMyName && students[savedMyName]) {
+        currentStudentName = savedMyName;
+      } else if (!currentStudentName || !students[currentStudentName]) {
+        currentStudentName = Object.keys(students)[0];
+      }
+
+      updateRoomSelectorUI();
+      updateUndoButtonState();
+      updateEconomyPhaseUI();
+      renderAll();
+      renderStudentLoginGrid();
+    }
+
+    function initClassData() {
+      currentRoomId = "class_1";
+      loadRoomLocalData(currentRoomId);
+      const fbUrl = getFirebaseUrl();
+      if (fbUrl) connectFirebaseCloud(fbUrl);
+    }
+
+    function setupDefaults() {
+      roomCustomTitle = "";
+      roomTeacherPin = "10101";
+      marketDay = 1;
+      seedMoney = 0; // 초기 예수금 0원
+      economyPhase = 3;
+      prevTurnStudentAssets = {};
+      prevTurnStudentRanks = {};
+      setupDefaultStocks();
+      setupDefaultStudents();
+    }
+
+    function setupDefaultStocks() {
+      stocks = DEFAULT_STOCKS.map(item => {
+        const randPrice = createRandomStartPrice(15000, 180000);
+        return {
+          code: item.code, name: item.name, price: randPrice, basePrice: randPrice,
+          change: 0, rate: 0, trend: "none", isUpperLimit: false, isLowerLimit: false, history: [randPrice]
+        };
+      });
+    }
+
+    function setupDefaultStudents() {
+      students = {};
+      DEFAULT_STUDENTS.forEach(name => {
+        students[name] = { cash: seedMoney, netDeposit: 0, realizedProfit: 0, realizedCost: 0, pin: "1234", holdings: {} };
+      });
+      currentStudentName = DEFAULT_STUDENTS[0];
+    }
+
+    function setEconomyPhase(phase) {
+      if (!isTeacherMode) return;
+      economyPhase = phase;
+      updateEconomyPhaseUI();
+      pushFullStateToCloud();
+    }
+
+    function updateEconomyPhaseUI() {
+      const config = ECON_CONFIGS[economyPhase];
+      const descEl = document.getElementById('economyStateDescription');
+      if (descEl) {
+        descEl.textContent = config.label;
+        descEl.className = `text-xs font-black ml-1 ${config.color}`;
+      }
+      for (let i = 1; i <= 5; i++) {
+        const btn = document.getElementById(`econBtn${i}`);
+        if (!btn) continue;
+        btn.className = (i === economyPhase)
+          ? "econ-btn px-2.5 py-1 rounded-lg text-xs font-black transition-all bg-indigo-600 text-white shadow cursor-pointer"
+          : "econ-btn px-2.5 py-1 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-slate-200 cursor-pointer";
+      }
+    }
+
+    function compareStudentsByMode(a, b, mode) {
+      if (mode === 'profitRate') return (b.profitRate - a.profitRate) || (b.totalAsset - a.totalAsset);
+      if (mode === 'totalAsset') return (b.totalAsset - a.totalAsset) || (b.profitRate - a.profitRate);
+      if (mode === 'realizedProfit') return (b.realizedProfit - a.realizedProfit) || (b.realizedRate - a.realizedRate);
+      if (mode === 'realizedRate') return (b.realizedRate - a.realizedRate) || (b.realizedProfit - a.realizedProfit);
+      return 0;
+    }
+
+    function nextMarketTurn() {
+      if (!isTeacherMode) return;
+      const econConfig = ECON_CONFIGS[economyPhase];
+
+      prevTurnStudentAssets = {};
+      const currentRankedBeforeTurn = Object.keys(students).map(name => ({
+        name, ...getStudentStats(name)
+      })).sort((a, b) => compareStudentsByMode(a, b, rankingSortMode));
+
+      prevTurnStudentRanks = {};
+      currentRankedBeforeTurn.forEach((item, idx) => {
+        prevTurnStudentAssets[item.name] = item.totalAsset;
+        prevTurnStudentRanks[item.name] = idx + 1;
+      });
+
+      saveSnapshotBeforeTurn();
+      const previousDay = marketDay;
+      marketDay++;
+
+      const limitHits = [];
+
+      stocks.forEach(stock => {
+        stock.basePrice = stock.price;
+        const upperLimit = Math.floor(stock.basePrice * 1.30);
+        const lowerLimit = Math.ceil(stock.basePrice * 0.70);
+
+        const u1 = Math.random(), u2 = Math.random();
+        const randStdNormal = Math.sqrt(-2.0 * Math.log(u1 || 0.001)) * Math.cos(2.0 * Math.PI * u2);
+        let rawRate = 0;
+
+        if (stock.trend === "up") {
+          if (economyPhase === 1) rawRate = -0.05 + (Math.random() * 0.06);
+          else if (economyPhase === 2) rawRate = -0.03 + (Math.random() * 0.06);
+          else if (economyPhase === 3) rawRate = Math.random() < 0.20 ? 0.35 : (0.04 + Math.random() * 0.14);
+          else if (economyPhase === 4) rawRate = Math.random() < 0.75 ? 0.35 : (0.12 + Math.random() * 0.14);
+          else if (economyPhase === 5) rawRate = Math.random() < 0.90 ? 0.35 : (0.18 + Math.random() * 0.11);
+        } else if (stock.trend === "down") {
+          if (economyPhase === 5) rawRate = -0.01 + (Math.random() * 0.06);
+          else if (economyPhase === 4) rawRate = -0.03 + (Math.random() * 0.06);
+          else if (economyPhase === 3) rawRate = Math.random() < 0.20 ? -0.35 : (-0.04 - Math.random() * 0.14);
+          else if (economyPhase === 2) rawRate = Math.random() < 0.75 ? -0.35 : (-0.12 - Math.random() * 0.14);
+          else if (economyPhase === 1) rawRate = Math.random() < 0.90 ? -0.35 : (-0.18 - Math.random() * 0.11);
+        } else {
+          rawRate = econConfig.bias + (randStdNormal * econConfig.volatility);
+          if (Math.random() < econConfig.extremeChance) {
+            rawRate = econConfig.extremeType === 'upper' ? 0.32 : (econConfig.extremeType === 'lower' ? -0.32 : (Math.random() > 0.5 ? 0.32 : -0.32));
+          }
+        }
+
+        let newPrice = Math.round(stock.basePrice * (1 + rawRate));
+        if (newPrice > 1000) newPrice = Math.round(newPrice / 10) * 10;
+        if (newPrice > 100000) newPrice = Math.round(newPrice / 100) * 100;
+
+        if (stock.trend === "up" && economyPhase >= 3 && newPrice <= stock.basePrice) {
+          newPrice = stock.basePrice + (stock.basePrice > 100000 ? 100 : 10);
+        } else if (stock.trend === "down" && economyPhase <= 3 && newPrice >= stock.basePrice) {
+          newPrice = Math.max(100, stock.basePrice - (stock.basePrice > 100000 ? 100 : 10));
+        }
+
+        stock.isUpperLimit = false;
+        stock.isLowerLimit = false;
+
+        if (newPrice >= upperLimit) {
+          newPrice = upperLimit;
+          stock.isUpperLimit = true;
+          limitHits.push({ stock, type: 'UP', news: UPPER_LIMIT_NEWS[Math.floor(Math.random() * UPPER_LIMIT_NEWS.length)] });
+        } else if (newPrice <= lowerLimit) {
+          newPrice = lowerLimit;
+          stock.isLowerLimit = true;
+          limitHits.push({ stock, type: 'DOWN', news: LOWER_LIMIT_NEWS[Math.floor(Math.random() * LOWER_LIMIT_NEWS.length)] });
+        }
+
+        stock.price = newPrice;
+        stock.change = stock.price - stock.basePrice;
+        stock.rate = ((stock.change / stock.basePrice) * 100);
+        stock.history.push(stock.price);
+        if (stock.history.length > 30) stock.history.shift();
+      });
+
+      pushFullStateToCloud();
+      renderAll();
+
+      if (limitHits.length > 0) {
+        showLimitAlertModal(limitHits, () => showDailySummaryModal(previousDay));
+      } else {
+        showDailySummaryModal(previousDay);
+      }
+    }
+
+    function promptCashAdjustment() {
+      if (!isTeacherMode) return;
+      const sData = students[currentStudentName];
+      if (!sData) return;
+
+      const curNetDep = Number(sData.netDeposit) || 0;
+
+      const input = prompt(
+        `[${currentStudentName}] 학생 예수금 입출금 (총수익률 및 실현손익에 영향을 주지 않습니다)\n\n` +
+        `1) 일반 입출금:\n` +
+        `   • 입금(상점·급여): 50000  /  출금(벌금): -30000\n\n` +
+        `2) 이전에 넣어준 돈 때문에 부풀려진 총수익률 원금만 바로잡을 때:\n` +
+        `   • 앞에 '='를 붙여 누적 입금액 입력 (예: =1000000)\n\n` +
+        `현재 보유 예수금: ${Number(sData.cash).toLocaleString()}원`,
+        "100000"
+      );
+      if (input === null) return;
+
+      const trimmed = input.trim();
+
+      if (trimmed.startsWith('=')) {
+        const targetNetDep = parseInt(trimmed.slice(1).replace(/,/g, ''), 10);
+        if (isNaN(targetNetDep)) {
+          showOrderToast("⚠️ '=숫자' 형식으로 올바르게 입력해주세요.", "error");
+          return;
+        }
+        sData.netDeposit = targetNetDep;
+        pushSingleStudentToCloud(currentStudentName);
+        renderAll();
+        showOrderToast(`✅ [${currentStudentName}] 누적 입출금 원금 보정이 완료되었습니다!`, "success");
+        return;
+      }
+
+      const amount = parseInt(trimmed.replace(/,/g, ''), 10);
+      if (isNaN(amount) || amount === 0) {
+        showOrderToast("⚠️ 올바른 금액을 숫자로 입력해주세요.", "error");
+        return;
+      }
+
+      if (Number(sData.cash) + amount < 0) {
+        showOrderToast(`❌ 출금액이 현재 예수금(${Number(sData.cash).toLocaleString()}원)보다 클 수 없습니다.`, "error");
+        return;
+      }
+
+      sData.cash = Number(sData.cash) + amount;
+      sData.netDeposit = curNetDep + amount;
+
+      pushSingleStudentToCloud(currentStudentName);
+      renderAll();
+
+      if (amount > 0) {
+        showOrderToast(`💰 [${currentStudentName}] +${amount.toLocaleString()}원 입금 완료!`, "success");
+      } else {
+        showOrderToast(`💸 [${currentStudentName}] ${amount.toLocaleString()}원 출금 완료!`, "sell");
+      }
+    }
+
+    function promptRealizedAdjustment() {
+      if (!isTeacherMode) return;
+      const sData = students[currentStudentName];
+      if (!sData) return;
+
+      const curProfit = Number(sData.realizedProfit) || 0;
+      const curCost = Number(sData.realizedCost) || 0;
+
+      const input = prompt(
+        `[${currentStudentName}] 학생의 누적 실현손익 및 누적 매도원금을 수동 설정합니다.\n` +
+        `'실현손익:투자원금' 형식으로 입력하세요. (초기화하려면 0:0 입력)\n\n` +
+        `예시) 100만원 투자해 10만원 벌었을 때 ➔ 100000:1000000\n` +
+        `현재 값 ➔ ${curProfit}:${curCost}`,
+        `${curProfit}:${curCost}`
+      );
+      if (input === null) return;
+
+      const parts = input.split(':');
+      const newProfit = parseInt((parts[0] || "0").replace(/,/g, ''), 10);
+      const newCost = parseInt((parts[1] || "0").replace(/,/g, ''), 10);
+
+      if (isNaN(newProfit) || isNaN(newCost) || newCost < 0) {
+        showOrderToast("⚠️ '실현손익:투자원금' 형식으로 숫자를 입력해주세요.", "error");
+        return;
+      }
+
+      sData.realizedProfit = newProfit;
+      sData.realizedCost = newCost;
+      pushSingleStudentToCloud(currentStudentName);
+      renderAll();
+      showOrderToast(`✅ [${currentStudentName}] 실현손익(${newProfit.toLocaleString()}원) 보정이 완료되었습니다!`, "success");
+    }
+
+    function ensureActiveAccountAndStock() {
+      if (!stocks || stocks.length === 0) setupDefaultStocks();
+      if (!selectedStockCode || !stocks.some(x => String(x.code) === String(selectedStockCode))) {
+        selectedStockCode = stocks[0].code;
+      }
+      if (!currentStudentName) {
+        currentStudentName = Object.keys(students)[0] || DEFAULT_STUDENTS[0];
+      }
+      if (!students[currentStudentName]) {
+        students[currentStudentName] = { cash: seedMoney, netDeposit: 0, realizedProfit: 0, realizedCost: 0, pin: "1234", holdings: {} };
+      }
+      if (students[currentStudentName].realizedProfit === undefined) students[currentStudentName].realizedProfit = 0;
+      if (students[currentStudentName].realizedCost === undefined) students[currentStudentName].realizedCost = 0;
+      if (!students[currentStudentName].holdings) {
+        students[currentStudentName].holdings = {};
+      }
+    }
+
+    function executeOrder() {
+      ensureActiveAccountAndStock();
+      const s = stocks.find(x => String(x.code) === String(selectedStockCode));
+      if (!s) {
+        showOrderToast("❌ 선택된 종목을 찾을 수 없습니다.", "error");
+        return;
+      }
+      const sData = students[currentStudentName];
+      const qtyInputEl = document.getElementById('orderQtyInput');
+      const qty = Math.floor(Number(qtyInputEl ? qtyInputEl.value : 0));
+      if (!qty || qty <= 0) {
+        showOrderToast("⚠️ 주문 수량을 1주 이상 입력해주세요!", "error");
+        return;
+      }
+      const stockPrice = Number(s.price) || 0;
+      const totalOrderAmount = qty * stockPrice;
+
+      if (currentOrderType === 'buy') {
+        if (Number(sData.cash) < totalOrderAmount) {
+          showOrderToast(`❌ 예수금 부족! (필요: ${totalOrderAmount.toLocaleString()}원)`, "error");
+          return;
+        }
+        sData.cash = Number(sData.cash) - totalOrderAmount;
+        if (!sData.holdings[s.code]) sData.holdings[s.code] = { qty: 0, totalCost: 0 };
+        sData.holdings[s.code].qty = Number(sData.holdings[s.code].qty) + qty;
+        sData.holdings[s.code].totalCost = Number(sData.holdings[s.code].totalCost) + totalOrderAmount;
+
+        pushSingleStudentToCloud(currentStudentName);
+        renderAll();
+        showOrderToast(`✅ [${currentStudentName}] ${s.name} ${qty}주 매수 체결!`, 'success');
+      } else {
+        const currentQty = (sData.holdings && sData.holdings[s.code]) ? Number(sData.holdings[s.code].qty) : 0;
+        if (currentQty < qty) {
+          showOrderToast(`❌ 보유 주식 부족! (현재 보유: ${currentQty}주)`, "error");
+          return;
+        }
+        const avgPrice = Number(sData.holdings[s.code].totalCost) / currentQty;
+        const costBasis = Math.round(avgPrice * qty);
+        const tradeProfit = totalOrderAmount - costBasis;
+        const tradeRate = costBasis > 0 ? ((tradeProfit / costBasis) * 100).toFixed(2) : "0.00";
+
+        sData.cash = Number(sData.cash) + totalOrderAmount;
+        sData.realizedCost = (Number(sData.realizedCost) || 0) + costBasis;
+        sData.realizedProfit = (Number(sData.realizedProfit) || 0) + tradeProfit;
+
+        sData.holdings[s.code].qty = currentQty - qty;
+        sData.holdings[s.code].totalCost = Math.max(0, Number(sData.holdings[s.code].totalCost) - costBasis);
+        if (sData.holdings[s.code].qty <= 0) delete sData.holdings[s.code];
+
+        pushSingleStudentToCloud(currentStudentName);
+        renderAll();
+        const pSign = tradeProfit >= 0 ? '+' : '';
+        showOrderToast(`💰 ${s.name} ${qty}주 매도 확정! (실현손익: ${pSign}${tradeProfit.toLocaleString()}원 / ${pSign}${tradeRate}%)`, 'sell');
+      }
+    }
+
+    function sellAllHoldings() {
+      ensureActiveAccountAndStock();
+      const sData = students[currentStudentName];
+      const holdingCodes = Object.keys(sData.holdings || {}).filter(code => Number(sData.holdings[code].qty) > 0);
+      if (holdingCodes.length === 0) {
+        showOrderToast(`⚠️ [${currentStudentName}] 현재 보유 중인 주식이 없습니다.`, "error");
+        return;
+      }
+      let totalSoldAmount = 0;
+      let totalSoldCost = 0;
+      holdingCodes.forEach(code => {
+        const s = stocks.find(x => String(x.code) === String(code));
+        if (s) {
+          const q = Number(sData.holdings[code].qty);
+          const c = Number(sData.holdings[code].totalCost) || 0;
+          totalSoldAmount += Number(s.price) * q;
+          totalSoldCost += c;
+          delete sData.holdings[code];
+        }
+      });
+
+      const batchProfit = totalSoldAmount - totalSoldCost;
+      sData.cash = Number(sData.cash) + totalSoldAmount;
+      sData.realizedCost = (Number(sData.realizedCost) || 0) + totalSoldCost;
+      sData.realizedProfit = (Number(sData.realizedProfit) || 0) + batchProfit;
+
+      pushSingleStudentToCloud(currentStudentName);
+      renderAll();
+      const pSign = batchProfit >= 0 ? '+' : '';
+      showOrderToast(`💰 전량 매도 확정! (이번 실현손익: ${pSign}${batchProfit.toLocaleString()}원)`, "sell");
+    }
+
+    function aiRandomBuy() {
+      ensureActiveAccountAndStock();
+      const sData = students[currentStudentName];
+      const minStockPrice = Math.min(...stocks.map(s => Number(s.price)));
+      if (Number(sData.cash) < minStockPrice) {
+        showOrderToast(`❌ 예수금이 부족하여 AI 매수를 실행할 수 없습니다!`, "error");
+        return;
+      }
+      let loopSafety = 0;
+      let totalSpent = 0;
+      while (Number(sData.cash) >= minStockPrice && loopSafety < 80) {
+        loopSafety++;
+        const randomStock = stocks[Math.floor(Math.random() * stocks.length)];
+        const sPrice = Number(randomStock.price);
+        if (Number(sData.cash) >= sPrice) {
+          const maxPossible = Math.floor(Number(sData.cash) / sPrice);
+          const buyQty = Math.max(1, Math.floor(Math.random() * Math.min(maxPossible, 5)) + 1);
+          const cost = sPrice * buyQty;
+          if (Number(sData.cash) >= cost) {
+            sData.cash = Number(sData.cash) - cost;
+            totalSpent += cost;
+            if (!sData.holdings[randomStock.code]) sData.holdings[randomStock.code] = { qty: 0, totalCost: 0 };
+            sData.holdings[randomStock.code].qty = Number(sData.holdings[randomStock.code].qty) + buyQty;
+            sData.holdings[randomStock.code].totalCost = Number(sData.holdings[randomStock.code].totalCost) + cost;
+          }
+        }
+      }
+      pushSingleStudentToCloud(currentStudentName);
+      renderAll();
+      showOrderToast(`🤖 [${currentStudentName}] AI 분산 매수 완료! (${totalSpent.toLocaleString()}원 투자)`, "success");
+    }
+
+    function switchMainView(view) {
+      const marketView = document.getElementById('marketView');
+      const rankingView = document.getElementById('rankingView');
+      const marketBtn = document.getElementById('viewMarketBtn');
+      const rankingBtn = document.getElementById('viewRankingBtn');
+      if (view === 'market') {
+        marketView.classList.remove('hidden'); rankingView.classList.add('hidden');
+        marketBtn.className = "px-2.5 py-1 rounded-lg font-black transition-all bg-indigo-600 text-white shadow cursor-pointer";
+        rankingBtn.className = "px-2.5 py-1 rounded-lg font-bold text-slate-400 hover:text-white transition-all cursor-pointer";
+        renderDetailView();
+      } else {
+        marketView.classList.add('hidden'); rankingView.classList.remove('hidden');
+        rankingBtn.className = "px-2.5 py-1 rounded-lg font-black transition-all bg-amber-600 text-white shadow cursor-pointer";
+        marketBtn.className = "px-2.5 py-1 rounded-lg font-bold text-slate-400 hover:text-white transition-all cursor-pointer";
+        renderClassRankingTable();
+      }
+    }
+
+    function renderAll() {
+      ensureActiveAccountAndStock();
+      document.getElementById('turnDisplay').textContent = `${marketDay}일차`;
+      const seedEl = document.getElementById('initSeedMoneyDisplay');
+      if (seedEl) seedEl.textContent = `${seedMoney.toLocaleString()}원`;
+      renderStudentSelector();
+      renderStockList();
+      renderDetailView();
+      renderStudentHUD();
+      renderStudentPortfolio();
+      renderStockHoldersList();
+      renderClassRankingTable();
+      updateOrderCalculation();
+    }
+
+    function renderStudentSelector() {
+      const select = document.getElementById('studentSelect');
+      const studentNames = Object.keys(students);
+      select.disabled = !isTeacherMode;
+      select.innerHTML = studentNames.map(name => `
+        <option value="${name}" ${name === currentStudentName ? 'selected' : ''}>${name}</option>
+      `).join('');
+    }
+
+    function onStudentChange(name) {
+      if (!isTeacherMode && name !== currentStudentName) {
+        openStudentLoginOverlay();
+        promptStudentPin(name);
+        return;
+      }
+      currentStudentName = name;
+      localStorage.setItem(getMyNameKeyForRoom(currentRoomId), name);
+      renderStudentHUD();
+      renderStudentPortfolio();
+      renderStockHoldersList();
+      updateOrderCalculation();
+    }
+
+    // 초기 예수금이 0원일 때도 오류가 나지 않도록 안전 분모(effectiveBase) 처리
+    function getStudentStats(name) {
+      const sData = students[name] || { cash: seedMoney, netDeposit: 0, realizedProfit: 0, realizedCost: 0, holdings: {} };
+      let stockValue = 0;
+      let holdingCost = 0;
+      for (const [code, h] of Object.entries(sData.holdings || {})) {
+        const s = stocks.find(x => String(x.code) === String(code));
+        if (s && Number(h.qty) > 0) {
+          stockValue += Number(s.price) * Number(h.qty);
+          holdingCost += Number(h.totalCost);
+        }
+      }
+      const cashVal = Number(sData.cash) || 0;
+      const totalAsset = cashVal + stockValue;
+      const netDep = Number(sData.netDeposit) || 0;
+      const basePrincipal = seedMoney + netDep;
+      const pureStockProfit = totalAsset - basePrincipal;
+
+      const realizedProfit = Number(sData.realizedProfit) || 0;
+      const realizedCost = Number(sData.realizedCost) || 0;
+      const realizedRate = realizedCost > 0 ? (realizedProfit / realizedCost) * 100 : 0;
+
+      // 초기 지원금이 0원인 경우 교사 입금액(basePrincipal) 또는 투자원금을 기준으로 수익률 계산
+      const effectiveBase = basePrincipal > 0 ? basePrincipal : (holdingCost + realizedCost);
+      const profitRate = effectiveBase > 0 ? (pureStockProfit / effectiveBase) * 100 : 0;
+
+      const unrealizedProfit = stockValue - holdingCost;
+      const unrealizedRate = holdingCost > 0 ? (unrealizedProfit / holdingCost) * 100 : 0;
+
+      return {
+        cash: cashVal,
+        stockValue,
+        holdingCost,
+        totalAsset,
+        profitRate,
+        pureStockProfit,
+        unrealizedProfit,
+        unrealizedRate,
+        realizedProfit,
+        realizedCost,
+        realizedRate
+      };
+    }
+
+    function renderStudentHUD() {
+      document.getElementById('hudStudentName').textContent = currentStudentName;
+      const stats = getStudentStats(currentStudentName);
+      document.getElementById('studentCashDisplay').textContent = `${stats.cash.toLocaleString()}원`;
+      document.getElementById('studentTotalAssetDisplay').textContent = `${stats.totalAsset.toLocaleString()}원`;
+
+      const tSign = stats.profitRate > 0 ? '+' : '';
+      const tColor = stats.profitRate > 0 ? 'price-up' : (stats.profitRate < 0 ? 'price-down' : 'text-slate-400');
+      const trEl = document.getElementById('studentProfitRateDisplay');
+      trEl.textContent = `${tSign}${stats.profitRate.toFixed(2)}%`;
+      trEl.className = `font-bold ${tColor}`;
+
+      const pSign = stats.realizedProfit > 0 ? '+' : '';
+      const pColor = stats.realizedProfit > 0 ? 'price-up' : (stats.realizedProfit < 0 ? 'price-down' : 'text-slate-200');
+
+      const rpEl = document.getElementById('studentRealizedProfitDisplay');
+      rpEl.textContent = `${pSign}${stats.realizedProfit.toLocaleString()}원`;
+      rpEl.className = `font-black ${pColor}`;
+
+      const rrEl = document.getElementById('studentRealizedRateDisplay');
+      rrEl.textContent = `${pSign}${stats.realizedRate.toFixed(2)}%`;
+      rrEl.className = `font-black ${pColor}`;
+
+      document.getElementById('summaryInvestedCost').textContent = `${stats.realizedCost.toLocaleString()}원`;
+      const sumRp = document.getElementById('summaryRealizedProfit');
+      sumRp.textContent = `${pSign}${stats.realizedProfit.toLocaleString()}원`;
+      sumRp.className = `font-black text-sm ${pColor}`;
+
+      const sumRr = document.getElementById('summaryRealizedRate');
+      sumRr.textContent = `${pSign}${stats.realizedRate.toFixed(2)}%`;
+      sumRr.className = `font-black text-sm ${pColor}`;
+
+      const uSign = stats.unrealizedProfit > 0 ? '+' : '';
+      const uColor = stats.unrealizedProfit > 0 ? 'price-up' : (stats.unrealizedProfit < 0 ? 'price-down' : 'text-slate-400');
+      const sumUp = document.getElementById('summaryUnrealizedProfit');
+      sumUp.textContent = `${uSign}${stats.unrealizedProfit.toLocaleString()}원 (${uSign}${stats.unrealizedRate.toFixed(2)}%)`;
+      sumUp.className = `font-bold text-sm ${uColor}`;
+    }
+
+    function renderStudentPortfolio() {
+      const tbody = document.getElementById('studentPortfolioTableBody');
+      const sData = students[currentStudentName] || { cash: seedMoney, holdings: {} };
+      const entries = Object.entries(sData.holdings || {}).filter(([_, h]) => Number(h.qty) > 0);
+      document.getElementById('portfolioCountBadge').textContent = `${entries.length}종목`;
+
+      if (entries.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-slate-500">현재 보유 중인 주식이 없습니다.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = entries.map(([code, h]) => {
+        const s = stocks.find(x => String(x.code) === String(code));
+        if (!s) return '';
+        const qty = Number(h.qty);
+        const cost = Number(h.totalCost);
+        const avgPrice = Math.round(cost / qty);
+        const evalValue = Number(s.price) * qty;
+        const profit = evalValue - cost;
+        const profitRate = cost > 0 ? (profit / cost) * 100 : 0;
+        const sign = profit >= 0 ? '+' : '';
+        const colorClass = profit >= 0 ? 'price-up' : 'price-down';
+
+        return `
+          <tr class="hover:bg-slate-800/30">
+            <td class="py-1.5 font-bold text-slate-200 cursor-pointer" onclick="selectStock('${s.code}')">${s.name}</td>
+            <td class="py-1.5 font-bold text-slate-100">${qty.toLocaleString()}주</td>
+            <td class="py-1.5 text-slate-400">${avgPrice.toLocaleString()}원</td>
+            <td class="py-1.5 font-bold ${colorClass}">${sign}${profit.toLocaleString()}원</td>
+            <td class="py-1.5 text-right font-bold ${colorClass}">${sign}${profitRate.toFixed(2)}%</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderStockHoldersList() {
+      const s = stocks.find(x => String(x.code) === String(selectedStockCode));
+      if (!s) return;
+      document.getElementById('stockHoldersTitle').textContent = `[${s.name}] 주주 명부`;
+      const tbody = document.getElementById('stockHoldersTableBody');
+
+      let totalIssuedQty = 0;
+      const holders = [];
+      Object.keys(students).forEach(name => {
+        const h = (students[name].holdings || {})[s.code];
+        if (h && Number(h.qty) > 0) {
+          const q = Number(h.qty);
+          totalIssuedQty += q;
+          holders.push({ name, qty: q, evalValue: Number(s.price) * q });
+        }
+      });
+
+      document.getElementById('stockHoldersTotalQty').textContent = `총 ${totalIssuedQty.toLocaleString()}주 보유됨`;
+      if (holders.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-slate-500">현재 이 주식을 보유한 학생이 없습니다.</td></tr>`;
+        return;
+      }
+
+      holders.sort((a, b) => b.qty - a.qty);
+      tbody.innerHTML = holders.map(h => {
+        const sharePercent = totalIssuedQty > 0 ? ((h.qty / totalIssuedQty) * 100).toFixed(1) : 0;
+        const isCurrent = h.name === currentStudentName;
+        return `
+          <tr class="hover:bg-slate-800/40 ${isCurrent ? 'bg-indigo-950/40 text-amber-300 font-bold' : ''}">
+            <td class="py-1.5 font-medium flex items-center gap-1">
+              <span>${h.name}</span>
+              ${isCurrent ? `<span class="text-[9px] px-1 py-0.1 rounded bg-indigo-600 text-white font-bold">본인</span>` : ''}
+            </td>
+            <td class="py-1.5 text-right font-bold text-slate-100">${h.qty.toLocaleString()}주</td>
+            <td class="py-1.5 text-right text-slate-300">${h.evalValue.toLocaleString()}원</td>
+            <td class="py-1.5 text-right text-indigo-400 font-bold">${sharePercent}%</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function setRankingSort(mode) {
+      rankingSortMode = mode;
+      const modes = {
+        profitRate: 'bg-rose-600 text-white shadow font-black',
+        totalAsset: 'bg-amber-600 text-white shadow font-black',
+        realizedProfit: 'bg-emerald-600 text-white shadow font-black',
+        realizedRate: 'bg-indigo-600 text-white shadow font-black'
+      };
+      Object.keys(modes).forEach(k => {
+        const btn = document.getElementById(`rankSort_${k}`);
+        if (!btn) return;
+        if (k === mode) {
+          btn.className = `px-2.5 py-1.5 rounded-lg transition-all cursor-pointer ${modes[k]}`;
+        } else {
+          btn.className = "px-2.5 py-1.5 rounded-lg font-bold text-slate-400 hover:text-white transition-all cursor-pointer";
+        }
+      });
+      renderClassRankingTable();
+    }
+
+    function renderClassRankingTable() {
+      const tbody = document.getElementById('classRankingTableBody');
+      const rankedList = Object.keys(students).map(name => ({ name, ...getStudentStats(name) }))
+        .sort((a, b) => compareStudentsByMode(a, b, rankingSortMode));
+
+      tbody.innerHTML = rankedList.map((item, idx) => {
+        const tSign = item.profitRate > 0 ? '+' : '';
+        const tColor = item.profitRate > 0 ? 'price-up' : (item.profitRate < 0 ? 'price-down' : 'text-slate-300');
+
+        const rSign = item.realizedProfit > 0 ? '+' : '';
+        const rColor = item.realizedProfit > 0 ? 'price-up' : (item.realizedProfit < 0 ? 'price-down' : 'text-slate-300');
+        
+        let rankBadge = `<span class="font-bold font-mono text-slate-400">${idx + 1}위</span>`;
+        if (idx === 0) rankBadge = `<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-black border border-amber-500/40">🥇 1위</span>`;
+        else if (idx === 1) rankBadge = `<span class="px-2 py-0.5 rounded-full bg-slate-300/20 text-slate-200 font-black border border-slate-400/40">🥈 2위</span>`;
+        else if (idx === 2) rankBadge = `<span class="px-2 py-0.5 rounded-full bg-amber-700/20 text-amber-500 font-black border border-amber-700/40">🥉 3위</span>`;
+
+        const currentRank = idx + 1;
+        const prevRank = prevTurnStudentRanks[item.name];
+        let rankChangeBadge = `<span class="inline-flex items-center justify-center px-2 py-0.5 rounded-md bg-slate-800/80 border border-slate-700/60 text-slate-400 font-mono text-[11px] font-bold">- (0)</span>`;
+
+        if (prevRank !== undefined) {
+          const diff = Number(prevRank) - currentRank;
+          if (diff > 0) {
+            rankChangeBadge = `<span class="inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-400 font-mono text-[11px] font-black"><i class="fa-solid fa-caret-up text-xs"></i>+${diff}계단</span>`;
+          } else if (diff < 0) {
+            rankChangeBadge = `<span class="inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-md bg-blue-500/15 border border-blue-500/30 text-blue-400 font-mono text-[11px] font-black"><i class="fa-solid fa-caret-down text-xs"></i>${Math.abs(diff)}계단</span>`;
+          } else {
+            rankChangeBadge = `<span class="inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-md bg-slate-800/90 border border-slate-700 text-slate-400 font-mono text-[11px] font-bold">- (유지)</span>`;
+          }
+        }
+
+        const isCurrent = item.name === currentStudentName;
+        const actionBtn = isTeacherMode
+          ? `<button type="button" onclick="switchToStudent('${item.name}')" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 text-[11px] font-bold transition-all cursor-pointer">교사 열람</button>`
+          : (isCurrent
+              ? `<span class="text-[11px] text-emerald-400 font-bold"><i class="fa-solid fa-check mr-1"></i>접속 중</span>`
+              : `<button type="button" onclick="openStudentLoginOverlay(); promptStudentPin('${item.name}');" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-indigo-600 text-slate-400 hover:text-white text-[11px] font-bold transition-all cursor-pointer"><i class="fa-solid fa-lock text-[9px] mr-1"></i>비번 로그인</button>`);
+
+        const hiAsset = rankingSortMode === 'totalAsset' ? 'bg-amber-500/10' : '';
+        const hiRate = rankingSortMode === 'profitRate' ? 'bg-rose-500/10' : '';
+        const hiRealProfit = rankingSortMode === 'realizedProfit' ? 'bg-emerald-500/10' : '';
+        const hiRealRate = rankingSortMode === 'realizedRate' ? 'bg-indigo-500/10' : '';
+
+        return `
+          <tr class="hover:bg-slate-800/40 transition-colors ${isCurrent ? 'bg-indigo-950/30 border-l-4 border-indigo-500' : ''}">
+            <td class="py-3 px-3 text-center whitespace-nowrap">${rankBadge}</td>
+            <td class="py-3 px-3 text-center whitespace-nowrap">${rankChangeBadge}</td>
+            <td class="py-3 px-3 font-extrabold text-slate-200 text-sm flex items-center gap-1.5">
+              <span>${item.name}</span>
+              ${isCurrent ? `<span class="text-[9px] px-1.5 py-0.2 rounded bg-indigo-600 text-white font-bold">내 계좌</span>` : ''}
+            </td>
+            <td class="py-3 px-3 text-right text-emerald-400/90">${item.cash.toLocaleString()}원</td>
+            <td class="py-3 px-3 text-right text-slate-300">${item.stockValue.toLocaleString()}원</td>
+            <td class="py-3 px-3 text-right font-black text-slate-100 text-sm ${hiAsset}">${item.totalAsset.toLocaleString()}원</td>
+            <td class="py-3 px-3 text-right font-extrabold ${tColor} ${hiRate}">${tSign}${item.profitRate.toFixed(2)}%</td>
+            <td class="py-3 px-3 text-right font-black border-l border-slate-800/80 ${rColor} ${hiRealProfit}">${rSign}${item.realizedProfit.toLocaleString()}원</td>
+            <td class="py-3 px-3 text-right font-extrabold ${rColor} ${hiRealRate}">${rSign}${item.realizedRate.toFixed(2)}%</td>
+            <td class="py-3 px-3 text-center">${actionBtn}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function switchToStudent(name) {
+      if (!isTeacherMode && name !== currentStudentName) {
+        openStudentLoginOverlay();
+        promptStudentPin(name);
+        return;
+      }
+      currentStudentName = name;
+      localStorage.setItem(getMyNameKeyForRoom(currentRoomId), name);
+      renderAll();
+      switchMainView('market');
+    }
+
+    function renderStockList() {
+      const container = document.getElementById('stockListContainer');
+      const query = document.getElementById('stockSearchInput').value.trim().toLowerCase();
+      const sortType = document.getElementById('sortSelect').value;
+
+      let list = stocks.filter(s => s.name.toLowerCase().includes(query) || String(s.code).includes(query));
+      if (sortType === 'rateDesc') list.sort((a, b) => b.rate - a.rate);
+      else if (sortType === 'rateAsc') list.sort((a, b) => a.rate - b.rate);
+      else if (sortType === 'priceDesc') list.sort((a, b) => b.price - a.price);
+
+      container.innerHTML = list.map(s => {
+        const isSelected = String(s.code) === String(selectedStockCode);
+        const isUp = s.change > 0, isDown = s.change < 0;
+        const sign = isUp ? '+' : '';
+        const colorClass = isUp ? 'price-up' : (isDown ? 'price-down' : 'text-slate-400');
+        const bgBadge = s.isUpperLimit ? 'bg-rose-600 text-white' : (s.isLowerLimit ? 'bg-blue-600 text-white' : '');
+
+        return `
+          <div onclick="selectStock('${s.code}')" class="p-3 flex items-center justify-between cursor-pointer transition-colors ${isSelected ? 'bg-slate-800/90 border-l-4 border-indigo-500' : 'hover:bg-slate-800/40'}">
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="font-extrabold text-xs text-slate-200">${s.name}</span>
+                ${s.isUpperLimit ? `<span class="text-[9px] px-1 py-0.1 font-bold rounded ${bgBadge}">상한</span>` : ''}
+                ${s.isLowerLimit ? `<span class="text-[9px] px-1 py-0.1 font-bold rounded ${bgBadge}">하한</span>` : ''}
+              </div>
+              <div class="text-[10px] font-mono text-slate-500 mt-0.5">${s.code}</div>
+            </div>
+            <div class="text-right font-mono">
+              <div class="font-bold text-xs text-slate-100">${Number(s.price).toLocaleString()}원</div>
+              <div class="text-[11px] font-semibold ${colorClass}">${sign}${Number(s.rate).toFixed(2)}%</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function selectStock(code) {
+      selectedStockCode = String(code);
+      renderStockList();
+      renderDetailView();
+      renderStockHoldersList();
+      updateOrderCalculation();
+    }
+
+    function renderDetailView() {
+      const s = stocks.find(x => String(x.code) === String(selectedStockCode));
+      if (!s) return;
+
+      document.getElementById('detailStockName').textContent = s.name;
+      document.getElementById('detailStockCode').textContent = s.code;
+      document.getElementById('detailPrice').textContent = `${Number(s.price).toLocaleString()}원`;
+
+      const isUp = s.change > 0, isDown = s.change < 0;
+      const sign = isUp ? '+' : '';
+      const colorClass = isUp ? 'price-up' : (isDown ? 'price-down' : 'text-slate-400');
+
+      const detailDiff = document.getElementById('detailDiff');
+      detailDiff.textContent = `${sign}${Number(s.change).toLocaleString()} (${sign}${Number(s.rate).toFixed(2)}%)`;
+      detailDiff.className = `text-xs font-bold font-mono ${colorClass}`;
+
+      const limitBadge = document.getElementById('limitBadge');
+      if (s.isUpperLimit) {
+        limitBadge.className = 'text-[10px] font-black px-1.5 py-0.5 rounded bg-rose-600 text-white';
+        limitBadge.textContent = '상한가 +30%';
+      } else if (s.isLowerLimit) {
+        limitBadge.className = 'text-[10px] font-black px-1.5 py-0.5 rounded bg-blue-600 text-white';
+        limitBadge.textContent = '하한가 -30%';
+      } else {
+        limitBadge.className = 'hidden';
+      }
+
+      document.getElementById('detailUpperLimit').textContent = `${Math.floor(Number(s.basePrice) * 1.30).toLocaleString()}원`;
+      document.getElementById('detailBasePrice').textContent = `${Number(s.basePrice).toLocaleString()}원`;
+      document.getElementById('detailLowerLimit').textContent = `${Math.ceil(Number(s.basePrice) * 0.70).toLocaleString()}원`;
+      document.getElementById('orderUnitPriceDisplay').textContent = `${Number(s.price).toLocaleString()}원`;
+
+      updateChart(s);
+    }
+
+    function updateChart(stock) {
+      const canvasEl = document.getElementById('stockHistoryChart');
+      const ctx = canvasEl.getContext('2d');
+      const fullHist = Array.isArray(stock.history) ? stock.history : [stock.price];
+      const hist = fullHist.slice(-30);
+      const startDay = Math.max(1, marketDay - hist.length + 1);
+      const labels = hist.map((_, i) => `${startDay + i}일`);
+
+      const isUp = Number(stock.price) >= Number(hist[0]);
+      const borderColor = isUp ? '#f43f5e' : '#3b82f6';
+      const bgColor = isUp ? 'rgba(244, 63, 94, 0.1)' : 'rgba(59, 130, 246, 0.1)';
+
+      if (chartInstance) {
+        chartInstance.data.labels = labels;
+        chartInstance.data.datasets[0].label = stock.name;
+        chartInstance.data.datasets[0].data = hist;
+        chartInstance.data.datasets[0].borderColor = borderColor;
+        chartInstance.data.datasets[0].backgroundColor = bgColor;
+        chartInstance.update('none');
+        return;
+      }
+
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: stock.name, data: hist, borderColor: borderColor, backgroundColor: bgColor,
+            borderWidth: 2.5, fill: true, tension: 0.25, pointRadius: 3
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#64748b', font: { size: 10 } } },
+            y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: val => val.toLocaleString() + '원' } }
+          }
+        }
+      });
+    }
+
+    function setOrderType(type) {
+      currentOrderType = type;
+      document.getElementById('orderTypeBuyBtn').className = type === 'buy'
+        ? "flex-1 py-1.5 text-xs font-black rounded-lg transition-all bg-rose-600 text-white shadow cursor-pointer"
+        : "flex-1 py-1.5 text-xs font-bold text-slate-400 hover:text-slate-200 rounded-lg transition-all cursor-pointer";
+      document.getElementById('orderTypeSellBtn').className = type === 'sell'
+        ? "flex-1 py-1.5 text-xs font-black rounded-lg transition-all bg-blue-600 text-white shadow cursor-pointer"
+        : "flex-1 py-1.5 text-xs font-bold text-slate-400 hover:text-slate-200 rounded-lg transition-all cursor-pointer";
+      updateOrderCalculation();
+    }
+
+    function adjustOrderQty(delta) {
+      const input = document.getElementById('orderQtyInput');
+      input.value = Math.max(1, (parseInt(input.value) || 0) + delta);
+      updateOrderCalculation();
+    }
+
+    function setQtyPercentage(percent) {
+      ensureActiveAccountAndStock();
+      const s = stocks.find(x => String(x.code) === String(selectedStockCode));
+      if (!s) return;
+      const input = document.getElementById('orderQtyInput');
+      const sData = students[currentStudentName] || { cash: 0, holdings: {} };
+      if (currentOrderType === 'buy') {
+        const maxBuy = Math.floor(Number(sData.cash) / Number(s.price));
+        input.value = Math.max(1, Math.floor(maxBuy * percent));
+      } else {
+        const holding = (sData.holdings && sData.holdings[s.code]) ? Number(sData.holdings[s.code].qty) : 0;
+        input.value = Math.max(1, Math.floor(holding * percent));
+      }
+      updateOrderCalculation();
+    }
+
+    function updateOrderCalculation() {
+      ensureActiveAccountAndStock();
+      const s = stocks.find(x => String(x.code) === String(selectedStockCode));
+      if (!s) return;
+      const qty = Math.max(1, parseInt(document.getElementById('orderQtyInput').value) || 1);
+      const totalOrderVal = qty * Number(s.price);
+      document.getElementById('orderTotalPriceDisplay').textContent = `${totalOrderVal.toLocaleString()}원`;
+
+      const maxAffordableDisplay = document.getElementById('maxAffordableDisplay');
+      const expEl = document.getElementById('expectedRealizedDisplay');
+      const sData = students[currentStudentName] || { cash: 0, holdings: {} };
+
+      if (currentOrderType === 'buy') {
+        maxAffordableDisplay.textContent = `매수 가능: ${Math.floor(Number(sData.cash) / Number(s.price)).toLocaleString()}주`;
+        if (expEl) { expEl.textContent = "매도 시 확정됨"; expEl.className = "text-slate-400"; }
+      } else {
+        const hObj = (sData.holdings && sData.holdings[s.code]) ? sData.holdings[s.code] : null;
+        const holdingQty = hObj ? Number(hObj.qty) : 0;
+        maxAffordableDisplay.textContent = `보유 수량: ${holdingQty.toLocaleString()}주`;
+        if (expEl) {
+          if (holdingQty > 0) {
+            const avg = Number(hObj.totalCost) / holdingQty;
+            const estProfit = Math.round((Number(s.price) - avg) * Math.min(qty, holdingQty));
+            const estRate = avg > 0 ? (((Number(s.price) - avg) / avg) * 100).toFixed(2) : "0.00";
+            const sign = estProfit >= 0 ? '+' : '';
+            expEl.textContent = `${sign}${estProfit.toLocaleString()}원 (${sign}${estRate}%)`;
+            expEl.className = estProfit >= 0 ? "price-up font-bold" : "price-down font-bold";
+          } else {
+            expEl.textContent = "보유 없음";
+            expEl.className = "text-slate-500";
+          }
+        }
+      }
+
+      const submitBtn = document.getElementById('submitOrderBtn');
+      const actionName = currentOrderType === 'buy' ? '매수' : '매도';
+      submitBtn.innerHTML = `<span>[${currentStudentName}] ${actionName} 주문 전송</span>`;
+      submitBtn.className = currentOrderType === 'buy'
+        ? "w-full py-3 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-black text-sm shadow-lg transition-all flex items-center justify-center gap-1.5 mt-4 cursor-pointer"
+        : "w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-black text-sm shadow-lg transition-all flex items-center justify-center gap-1.5 mt-4 cursor-pointer";
+    }
+
+    function openTutorialModal() {
+      const modal = document.getElementById('tutorialModal');
+      modal.classList.remove('hidden');
+      setTimeout(() => modal.classList.remove('opacity-0'), 10);
+    }
+    function closeTutorialModal() {
+      const modal = document.getElementById('tutorialModal');
+      modal.classList.add('opacity-0');
+      setTimeout(() => modal.classList.add('hidden'), 200);
+    }
+
+    let limitModalCallback = null;
+    function showLimitAlertModal(limitList, nextCallback) {
+      limitModalCallback = nextCallback;
+      const modal = document.getElementById('limitAlertModal');
+      document.getElementById('limitNewsItemsContainer').innerHTML = limitList.map(item => `
+        <div class="bg-slate-900/90 rounded-2xl p-3.5 border border-slate-800 space-y-1.5 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="font-extrabold text-sm text-slate-100">${item.stock.name} (${Number(item.stock.price).toLocaleString()}원)</span>
+            <span class="text-[10px] font-black px-2 py-0.5 rounded border ${item.type === 'UP' ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' : 'bg-blue-500/20 text-blue-300 border-blue-500/40'}">${item.type === 'UP' ? '🔥 상한가 (+30%)' : '🧊 하한가 (-30%)'}</span>
+          </div>
+          <p class="text-xs text-slate-300 bg-slate-950/60 p-2.5 rounded-xl">📰 <strong>[특보]</strong> ${item.news}</p>
+        </div>
+      `).join('');
+      modal.classList.remove('hidden');
+      setTimeout(() => { modal.classList.remove('opacity-0'); modal.querySelector('.glass-panel').classList.remove('scale-95'); }, 10);
+    }
+    function closeLimitModal() {
+      const modal = document.getElementById('limitAlertModal');
+      modal.classList.add('opacity-0');
+      const panel = modal.querySelector('.glass-panel');
+      if (panel) panel.classList.add('scale-95');
+      setTimeout(() => { modal.classList.add('hidden'); if (limitModalCallback) { const cb = limitModalCallback; limitModalCallback = null; cb(); } }, 250);
+    }
+
+    function showDailySummaryModal(dayNum) {
+      const modal = document.getElementById('dailySummaryModal');
+      const labelName = roomCustomTitle || ROOM_LABELS[currentRoomId];
+      document.getElementById('summaryModalTitle').textContent = `${labelName} · ${dayNum}일차 마감 결산 브리핑`;
+      const sortedStocks = [...stocks].sort((a, b) => b.rate - a.rate);
+      document.getElementById('bestListContainer').innerHTML = sortedStocks.slice(0, 3).map((s, idx) => `
+        <div class="flex items-center justify-between p-1.5 rounded-lg bg-slate-950/60 text-xs">
+          <span class="truncate"><strong class="text-rose-400 mr-1">${idx + 1}위</strong>${s.name}</span>
+          <span class="font-bold text-rose-400 font-mono">+${Number(s.rate).toFixed(2)}%</span>
+        </div>
+      `).join('');
+      document.getElementById('worstListContainer').innerHTML = sortedStocks.slice(-3).reverse().map((s, idx) => `
+        <div class="flex items-center justify-between p-1.5 rounded-lg bg-slate-950/60 text-xs">
+          <span class="truncate"><strong class="text-blue-400 mr-1">${idx + 1}위</strong>${s.name}</span>
+          <span class="font-bold text-blue-400 font-mono">${Number(s.rate).toFixed(2)}%</span>
+        </div>
+      `).join('');
+
+      document.getElementById('summaryStudentName').textContent = currentStudentName;
+      const curStats = getStudentStats(currentStudentName);
+      const prevAsset = prevTurnStudentAssets[currentStudentName] !== undefined ? Number(prevTurnStudentAssets[currentStudentName]) : curStats.totalAsset;
+      const dayDiff = curStats.totalAsset - prevAsset;
+      const dayDiffRate = prevAsset === 0 ? 0 : (dayDiff / prevAsset) * 100;
+      const sign = dayDiff >= 0 ? '+' : '';
+      const returnEl = document.getElementById('summaryStudentDailyReturn');
+      returnEl.textContent = `${sign}${dayDiff.toLocaleString()}원 (${sign}${dayDiffRate.toFixed(2)}%)`;
+      returnEl.className = `font-mono font-bold text-sm ${dayDiff >= 0 ? 'text-rose-400' : 'text-blue-400'}`;
+
+      modal.classList.remove('hidden');
+      setTimeout(() => { modal.classList.remove('opacity-0'); modal.querySelector('.glass-panel').classList.remove('scale-95'); }, 10);
+    }
+    function closeDailySummaryModal() {
+      const modal = document.getElementById('dailySummaryModal');
+      modal.classList.add('opacity-0');
+      const panel = modal.querySelector('.glass-panel');
+      if (panel) panel.classList.add('scale-95');
+      setTimeout(() => modal.classList.add('hidden'), 250);
+    }
+
+    function saveSnapshotBeforeTurn() {
+      localStorage.setItem(getSnapshotKeyForRoom(currentRoomId), JSON.stringify({
+        roomCustomTitle, roomTeacherPin, marketDay, seedMoney, stocks, students, currentStudentName, economyPhase, prevTurnStudentAssets, prevTurnStudentRanks
+      }));
+      updateUndoButtonState();
+    }
+    function undoLastTurn() {
+      if (!isTeacherMode) return;
+      const snapshot = localStorage.getItem(getSnapshotKeyForRoom(currentRoomId));
+      if (!snapshot) return;
+      const data = JSON.parse(snapshot);
+      roomCustomTitle = data.roomCustomTitle || ""; roomTeacherPin = data.roomTeacherPin || "10101";
+      marketDay = data.marketDay; seedMoney = data.seedMoney !== undefined ? Number(data.seedMoney) : 0;
+      stocks = data.stocks; students = data.students;
+      currentStudentName = data.currentStudentName; economyPhase = data.economyPhase || 3;
+      prevTurnStudentAssets = data.prevTurnStudentAssets || {}; prevTurnStudentRanks = data.prevTurnStudentRanks || {};
+      localStorage.removeItem(getSnapshotKeyForRoom(currentRoomId));
+      updateUndoButtonState();
+      pushFullStateToCloud();
+      renderAll();
+      showOrderToast(`↩️ ${marketDay}일차 상태로 되돌렸습니다.`, "sell");
+    }
+    function updateUndoButtonState() {
+      const btn = document.getElementById('undoTurnBtn');
+      const has = !!localStorage.getItem(getSnapshotKeyForRoom(currentRoomId));
+      btn.disabled = !has;
+      btn.className = has
+        ? "px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-bold border border-amber-500/40 flex items-center gap-1 cursor-pointer"
+        : "px-2.5 py-1.5 rounded-xl bg-slate-800 text-slate-500 text-xs font-bold border border-slate-700/60 flex items-center gap-1 cursor-not-allowed";
+    }
+
+    function exportBackupFile() {
+      const labelName = roomCustomTitle || ROOM_LABELS[currentRoomId];
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+        roomCustomTitle, roomTeacherPin, marketDay, seedMoney, stocks, students, currentStudentName, economyPhase, prevTurnStudentAssets, prevTurnStudentRanks
+      }, null, 2));
+      const a = document.createElement('a');
+      a.href = dataStr; a.download = `학급모의투자_${labelName}_${marketDay}일차_백업.json`;
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    function importBackupFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          roomCustomTitle = data.roomCustomTitle || ""; roomTeacherPin = data.roomTeacherPin || "10101";
+          marketDay = data.marketDay || 1;
+          seedMoney = data.seedMoney !== undefined ? Number(data.seedMoney) : 0;
+          stocks = data.stocks; students = data.students;
+          economyPhase = data.economyPhase || 3;
+          prevTurnStudentAssets = data.prevTurnStudentAssets || {};
+          prevTurnStudentRanks = data.prevTurnStudentRanks || {};
+          pushFullStateToCloud();
+          renderAll();
+          showOrderToast("✅ 백업 파일이 성공적으로 복원되었습니다!", "success");
+        } catch (err) {
+          showOrderToast("❌ 파일 오류: " + err.message, "error");
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+
+    function openClassSetupModal() {
+      if (!isTeacherMode) return;
+      document.getElementById('setupRoomCustomTitleInput').value = roomCustomTitle;
+      document.getElementById('setupRoomTeacherPinInput').value = roomTeacherPin || "10101";
+      const studentEntries = Object.entries(students).map(([name, obj]) => `${name}:${obj.pin || '1234'}`);
+      document.getElementById('setupStudentsInput').value = studentEntries.join(', ');
+      document.getElementById('setupSeedMoneyInput').value = seedMoney;
+      document.getElementById('setupStockGrid').innerHTML = stocks.map((s, idx) => `
+        <div class="p-2 bg-slate-900 rounded-lg border border-slate-800 flex items-center gap-1.5">
+          <span class="w-4 text-slate-500 font-mono font-bold text-[11px]">${idx + 1}</span>
+          <input type="text" id="setup_stock_name_${idx}" value="${s.name}" class="w-28 bg-slate-950 border border-slate-800 rounded px-1.5 py-1 text-slate-200 font-bold text-xs select-text">
+          <input type="number" id="setup_stock_price_${idx}" value="${s.price}" min="100" step="100" class="w-20 bg-slate-950 border border-slate-800 rounded px-1 py-1 text-right font-mono text-slate-200 text-xs select-text">
+          <select id="setup_stock_trend_${idx}" class="flex-1 bg-slate-950 border border-slate-800 rounded px-1 py-1 text-xs font-bold outline-none cursor-pointer">
+            <option value="none" ${s.trend === 'none' ? 'selected' : ''}>보통(랜덤)</option>
+            <option value="up" ${s.trend === 'up' ? 'selected' : ''}>📈 우상향</option>
+            <option value="down" ${s.trend === 'down' ? 'selected' : ''}>📉 우하향</option>
+          </select>
+        </div>
+      `).join('');
+      const modal = document.getElementById('setupModal');
+      modal.classList.remove('hidden');
+      setTimeout(() => modal.classList.remove('opacity-0'), 10);
+    }
+
+    function closeClassSetupModal() {
+      const modal = document.getElementById('setupModal');
+      modal.classList.add('opacity-0');
+      setTimeout(() => modal.classList.add('hidden'), 200);
+    }
+
+    function autoAssignPins(mode) {
+      const raw = document.getElementById('setupStudentsInput').value;
+      const items = raw.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+      const updated = items.map((entry, idx) => {
+        const name = entry.split(':')[0].trim();
+        if (!name) return '';
+        if (mode === 'seq') return `${name}:${1001 + idx}`;
+        if (mode === 'random') return `${name}:${Math.floor(1000 + Math.random() * 9000)}`;
+        return `${name}:1234`;
+      }).filter(Boolean);
+      document.getElementById('setupStudentsInput').value = updated.join(', ');
+    }
+
+    function restoreDefaultStockNames() {
+      stocks.forEach((s, idx) => {
+        if (DEFAULT_STOCKS[idx]) {
+          const randPrice = createRandomStartPrice(15000, 180000);
+          document.getElementById(`setup_stock_name_${idx}`).value = DEFAULT_STOCKS[idx].name;
+          document.getElementById(`setup_stock_price_${idx}`).value = randPrice;
+          document.getElementById(`setup_stock_trend_${idx}`).value = "none";
+        }
+      });
+    }
+
+    function saveClassSetup() {
+      const rawEntries = document.getElementById('setupStudentsInput').value.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+      if (rawEntries.length < 2) {
+        showOrderToast("⚠️ 최소 2명 이상의 학생을 입력해주세요!", "error");
+        return;
+      }
+
+      roomCustomTitle = document.getElementById('setupRoomCustomTitleInput').value.trim();
+      roomTeacherPin = document.getElementById('setupRoomTeacherPinInput').value.trim() || "10101";
+      const parsedSeed = parseInt(document.getElementById('setupSeedMoneyInput').value, 10);
+      seedMoney = isNaN(parsedSeed) ? 0 : parsedSeed;
+
+      const newStudents = {};
+      rawEntries.forEach(entry => {
+        const parts = entry.split(':');
+        const name = parts[0].trim();
+        const pin = (parts[1] && parts[1].trim()) ? parts[1].trim() : "1234";
+        if (!name) return;
+
+        if (students[name]) {
+          newStudents[name] = { ...students[name], pin: pin };
+        } else {
+          newStudents[name] = { cash: seedMoney, netDeposit: 0, realizedProfit: 0, realizedCost: 0, pin: pin, holdings: {} };
+        }
+      });
+
+      students = newStudents;
+      if (!students[currentStudentName]) currentStudentName = Object.keys(students)[0];
+
+      stocks.forEach((s, idx) => {
+        const nameVal = document.getElementById(`setup_stock_name_${idx}`).value.trim();
+        const priceVal = parseInt(document.getElementById(`setup_stock_price_${idx}`).value, 10) || 1000;
+        const trendVal = document.getElementById(`setup_stock_trend_${idx}`).value;
+        if (nameVal) s.name = nameVal;
+        s.trend = trendVal;
+        if (s.price !== priceVal) {
+          s.price = priceVal;
+          s.history[s.history.length - 1] = priceVal;
+        }
+      });
+
+      pushFullStateToCloud();
+      updateRoomSelectorUI();
+      renderAll();
+      renderStudentLoginGrid();
+      closeClassSetupModal();
+      showOrderToast(`✅ 학급 설정 및 비밀번호가 클라우드에 배포되었습니다!`, "success");
+    }
+
+    function resetAllGameData() {
+      if (!confirm(`정말로 모든 학생의 예수금을 0원으로 초기화하고 1일차로 되돌리시겠습니까?`)) return;
+      localStorage.removeItem(getLocalKeyForRoom(currentRoomId));
+      localStorage.removeItem(getSnapshotKeyForRoom(currentRoomId));
+      setupDefaults();
+      pushFullStateToCloud();
+      renderAll();
+      renderStudentLoginGrid();
+      closeClassSetupModal();
+      showOrderToast(`🔄 전체 데이터가 1일차(초기 예수금 0원)로 초기화되었습니다.`, "sell");
+    }
+
+    window.addEventListener('load', () => {
+      initClassData();
+    });
+  </script>
+</body>
+</html>
