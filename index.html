@@ -3,10 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>학급 모의투자 거래소 - KOSDAQ 클래스 (연수용 단일학급 에디션)</title>
+  <title>학급 모의투자 거래소 - KOSDAQ 클래스 (쿠키 에디션)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -16,14 +15,9 @@
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #0f172a; }
     ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: #475569; }
     .price-up { color: #f43f5e; }
     .price-down { color: #3b82f6; }
-    .glass-panel {
-      background: rgba(15, 23, 42, 0.92);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-    }
+    .glass-panel { background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 h-screen w-screen overflow-hidden flex flex-col">
@@ -34,13 +28,13 @@
     <span id="orderToastText">주문이 체결되었습니다!</span>
   </div>
 
-  <!-- 학생 입장(로그인) 오버레이 모달 (1개 학급 전용) -->
+  <!-- 학생 입장(로그인) 오버레이 모달 -->
   <div id="studentLoginOverlay" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
     <div class="glass-panel w-full max-w-lg p-6 rounded-3xl border border-slate-700 shadow-2xl flex flex-col gap-4">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-600 flex items-center justify-center shadow-lg">
-            <i class="fa-solid fa-chart-line text-white text-lg"></i>
+            <i class="fa-solid fa-cookie-bite text-white text-lg"></i>
           </div>
           <div>
             <h2 class="text-base sm:text-lg font-black text-white flex items-center gap-2">
@@ -52,10 +46,8 @@
         <span id="loginCloudBadge" class="px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 font-bold text-[10px]">연결 확인 중...</span>
       </div>
 
-      <!-- STEP 1: 학생 이름 선택 그리드 (25명) -->
       <div id="loginStudentGrid" class="grid grid-cols-3 sm:grid-cols-5 gap-2 max-h-64 overflow-y-auto p-1"></div>
 
-      <!-- STEP 2: 선택한 학생 비밀번호 입력 박스 -->
       <div id="studentPinPromptBox" class="hidden flex-col items-center justify-center bg-slate-900/90 border border-indigo-500/40 rounded-2xl p-5 space-y-3.5">
         <div class="w-11 h-11 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-400 flex items-center justify-center text-lg">
           <i class="fa-solid fa-user-lock"></i>
@@ -121,20 +113,18 @@
   <header class="h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-3 md:px-4 z-20 flex-shrink-0">
     <div class="flex items-center gap-2.5">
       <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-600 flex items-center justify-center shadow-lg">
-        <i class="fa-solid fa-graduation-cap text-white text-base"></i>
+        <i class="fa-solid fa-cookie-bite text-white text-base"></i>
       </div>
       <div>
         <div class="flex items-center gap-2">
           <h1 class="font-black text-sm md:text-base leading-none bg-gradient-to-r from-amber-300 via-rose-400 to-indigo-400 bg-clip-text text-transparent">KOSDAQ 클래스</h1>
-          <span id="headerRoomBadge" class="bg-indigo-950 border border-indigo-500/50 text-indigo-300 font-black text-[11px] px-2 py-0.5 rounded-lg">
-            연수학급 서버
-          </span>
+          <span id="headerRoomBadge" class="bg-indigo-950 border border-indigo-500/50 text-indigo-300 font-black text-[11px] px-2 py-0.5 rounded-lg">연수학급 서버</span>
           <span id="cloudStatusBadge" class="hidden sm:flex text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-bold items-center gap-1">
             <span class="w-1.5 h-1.5 rounded-full bg-slate-500" id="cloudStatusDot"></span>
             <span id="cloudStatusText">연결 중...</span>
           </span>
         </div>
-        <span id="headerClassCustomTitle" class="text-[10px] text-slate-400">실시간 다자간 학급 모의투자</span>
+        <span id="headerClassCustomTitle" class="text-[10px] text-slate-400">실시간 쿠키 학급 모의투자</span>
       </div>
     </div>
 
@@ -146,7 +136,7 @@
         <button type="button" id="viewRankingBtn" onclick="switchMainView('ranking')" class="px-2.5 py-1 rounded-lg font-bold text-slate-400 hover:text-white transition-all cursor-pointer">
           <i class="fa-solid fa-trophy mr-1 text-amber-400"></i>랭킹
         </button>
-        <button type="button" onclick="openMyPayWallet()" class="px-2.5 py-1 rounded-lg font-black text-emerald-300 hover:bg-emerald-950/60 transition-all cursor-pointer" title="내 학급화폐 QR 지갑 및 장부 확인">
+        <button type="button" onclick="openMyPayWallet()" class="px-2.5 py-1 rounded-lg font-black text-emerald-300 hover:bg-emerald-950/60 transition-all cursor-pointer" title="내 쿠키 QR 지갑 및 장부 확인">
           <i class="fa-solid fa-qrcode mr-1 text-emerald-400"></i>페이 지갑
         </button>
       </div>
@@ -214,7 +204,6 @@
 
   <!-- 메인 본문 -->
   <div class="flex-1 overflow-hidden relative">
-    <!-- 1. 거래소 뷰 -->
     <div id="marketView" class="w-full h-full flex flex-col md:flex-row">
       <!-- [좌측] 20개 종목 리스트 -->
       <aside class="w-full md:w-80 lg:w-96 h-2/5 md:h-full flex flex-col bg-slate-900 border-r border-slate-800 flex-shrink-0">
@@ -236,7 +225,6 @@
 
       <!-- [중앙] 차트 & 실현손익 성적표 & 포트폴리오 -->
       <section class="flex-1 h-full flex flex-col bg-slate-950 overflow-y-auto">
-        <!-- 학생 상단 HUD: 예수금 + 총자산/총수익률 + 실현손익/실현수익률 모두 표시 -->
         <div class="p-3 bg-indigo-950/30 border-b border-indigo-900/40 flex flex-wrap items-center justify-between gap-2 text-xs">
           <div class="flex items-center gap-2">
             <span class="px-2 py-0.5 rounded bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 font-black text-[11px]" id="hudRoomBadge">연수학급</span>
@@ -246,7 +234,7 @@
           <div class="flex items-center gap-3 font-mono flex-wrap">
             <div class="flex items-center gap-1.5">
               <span class="text-slate-400">예수금:</span>
-              <span id="studentCashDisplay" class="font-bold text-emerald-400">0원</span>
+              <span id="studentCashDisplay" class="font-bold text-emerald-400">0.000쿠키</span>
               <button type="button" onclick="openMyPayWallet()" class="px-1.5 py-0.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded border border-emerald-500/40 text-[10px] font-bold cursor-pointer">
                 <i class="fa-solid fa-wallet mr-0.5"></i>지갑
               </button>
@@ -254,10 +242,10 @@
                 <i class="fa-solid fa-coins"></i>입출금
               </button>
             </div>
-            <div><span class="text-slate-400">총자산: </span><span id="studentTotalAssetDisplay" class="font-black text-slate-200">0원</span></div>
+            <div><span class="text-slate-400">총자산: </span><span id="studentTotalAssetDisplay" class="font-black text-slate-200">0.000쿠키</span></div>
             <div><span class="text-slate-400">총수익률: </span><span id="studentProfitRateDisplay" class="font-bold text-slate-400">0.00%</span></div>
             <div class="h-3.5 w-px bg-slate-800 hidden xl:block"></div>
-            <div><span class="text-slate-400">실현손익: </span><span id="studentRealizedProfitDisplay" class="font-black text-slate-200">0원</span></div>
+            <div><span class="text-slate-400">실현손익: </span><span id="studentRealizedProfitDisplay" class="font-black text-slate-200">0.000쿠키</span></div>
             <div><span class="text-slate-400">실현수익률: </span><span id="studentRealizedRateDisplay" class="font-black text-slate-400">0.00%</span></div>
             <button type="button" id="teacherRealizedAdjustBtn" onclick="promptRealizedAdjustment()" class="hidden items-center gap-1 px-1.5 py-0.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 rounded border border-rose-500/40 text-[10px] font-bold cursor-pointer">
               <i class="fa-solid fa-sliders"></i>실현보정
@@ -273,16 +261,16 @@
               <span id="limitBadge" class="hidden text-[10px] font-black px-1.5 py-0.5 rounded">상한가</span>
             </div>
             <div class="flex items-baseline gap-2 mt-1">
-              <span id="detailPrice" class="text-2xl font-black font-mono">0원</span>
-              <span id="detailDiff" class="text-xs font-bold font-mono">0 (0.00%)</span>
+              <span id="detailPrice" class="text-2xl font-black font-mono">0.000쿠키</span>
+              <span id="detailDiff" class="text-xs font-bold font-mono">0.000 (0.00%)</span>
             </div>
           </div>
           <div class="flex items-center gap-3 text-xs font-mono bg-slate-900 px-3 py-2 rounded-xl border border-slate-800">
-            <div><span class="text-[10px] text-slate-400 font-sans block">하한가 (-30%)</span><span id="detailLowerLimit" class="font-bold text-blue-400">0원</span></div>
+            <div><span class="text-[10px] text-slate-400 font-sans block">하한가 (-30%)</span><span id="detailLowerLimit" class="font-bold text-blue-400">0.000쿠키</span></div>
             <div class="h-6 w-px bg-slate-800"></div>
-            <div><span class="text-[10px] text-slate-400 font-sans block">기준가</span><span id="detailBasePrice" class="font-bold text-slate-300">0원</span></div>
+            <div><span class="text-[10px] text-slate-400 font-sans block">기준가</span><span id="detailBasePrice" class="font-bold text-slate-300">0.000쿠키</span></div>
             <div class="h-6 w-px bg-slate-800"></div>
-            <div><span class="text-[10px] text-slate-400 font-sans block">상한가 (+30%)</span><span id="detailUpperLimit" class="font-bold text-rose-400">0원</span></div>
+            <div><span class="text-[10px] text-slate-400 font-sans block">상한가 (+30%)</span><span id="detailUpperLimit" class="font-bold text-rose-400">0.000쿠키</span></div>
           </div>
         </div>
 
@@ -292,15 +280,14 @@
           </div>
         </div>
 
-        <!-- 내 실현손익/평가손익 요약 배너 -->
         <div class="px-4 pt-1 pb-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
           <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
             <span class="text-[10px] text-slate-400 font-sans block">누적 매도 투자원금</span>
-            <span id="summaryInvestedCost" class="font-bold text-slate-200 text-sm">0원</span>
+            <span id="summaryInvestedCost" class="font-bold text-slate-200 text-sm">0.000쿠키</span>
           </div>
           <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
             <span class="text-[10px] text-slate-400 font-sans block">누적 실현손익 (확정수익)</span>
-            <span id="summaryRealizedProfit" class="font-black text-slate-200 text-sm">0원</span>
+            <span id="summaryRealizedProfit" class="font-black text-slate-200 text-sm">0.000쿠키</span>
           </div>
           <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
             <span class="text-[10px] text-slate-400 font-sans block">실현수익률 (투자대비)</span>
@@ -308,7 +295,7 @@
           </div>
           <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
             <span class="text-[10px] text-slate-400 font-sans block">보유주식 평가손익 (미실현)</span>
-            <span id="summaryUnrealizedProfit" class="font-bold text-slate-400 text-sm">0원 (0.00%)</span>
+            <span id="summaryUnrealizedProfit" class="font-bold text-slate-400 text-sm">0.000쿠키 (0.00%)</span>
           </div>
         </div>
 
@@ -373,7 +360,7 @@
             </button>
             <button type="button" onclick="aiRandomBuy()" class="py-2 px-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 font-black flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-all cursor-pointer">
               <span class="flex items-center gap-1 text-[11px]"><i class="fa-solid fa-robot text-amber-400"></i>AI 매수</span>
-              <span class="text-[9px] font-normal text-indigo-400">남은 예수금 풀 분산</span>
+              <span class="text-[9px] font-normal text-indigo-400">남은 쿠키 풀 분산</span>
             </button>
           </div>
         </div>
@@ -388,7 +375,7 @@
             <label class="text-[11px] font-bold text-slate-400">주문 단가</label>
             <div class="flex items-center justify-between bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 mt-1">
               <span class="text-xs text-slate-400">현재가</span>
-              <span id="orderUnitPriceDisplay" class="font-black text-sm font-mono text-slate-100">0원</span>
+              <span id="orderUnitPriceDisplay" class="font-black text-sm font-mono text-slate-100">0.000쿠키</span>
             </div>
           </div>
 
@@ -416,7 +403,7 @@
           <div class="p-3 bg-slate-950/80 rounded-xl border border-slate-800/80 space-y-1.5 font-mono text-xs">
             <div class="flex items-center justify-between text-slate-400">
               <span>주문 총액:</span>
-              <span id="orderTotalPriceDisplay" class="font-bold text-slate-200">0원</span>
+              <span id="orderTotalPriceDisplay" class="font-bold text-slate-200">0.000쿠키</span>
             </div>
             <div class="flex items-center justify-between text-slate-500 text-[11px]">
               <span>매도 시 실현손익:</span>
@@ -440,7 +427,7 @@
           </div>
           <div>
             <h2 class="text-base font-black text-slate-100"><span id="rankingRoomTitle" class="text-amber-300">연수학급</span> 실시간 4대 랭킹 전광판</h2>
-            <p class="text-[11px] text-slate-400">우측 버튼 또는 표 제목을 클릭해 [총 수익률 · 총자산 · 실현손익(금액) · 실현수익률] 4가지 순위를 모두 비교하세요.</p>
+            <p class="text-[11px] text-slate-400">우측 버튼 또는 표 제목을 클릭해 [총 수익률 · 총자산 · 실현손익(쿠키) · 실현수익률] 4가지 순위를 비교하세요.</p>
           </div>
         </div>
 
@@ -450,16 +437,16 @@
               📈 총 수익률순
             </button>
             <button type="button" id="rankSort_totalAsset" onclick="setRankingSort('totalAsset')" class="px-2.5 py-1.5 rounded-lg font-bold text-slate-400 hover:text-white transition-all cursor-pointer">
-              💰 총자산순
+              🍪 총자산순
             </button>
             <button type="button" id="rankSort_realizedProfit" onclick="setRankingSort('realizedProfit')" class="px-2.5 py-1.5 rounded-lg font-bold text-slate-400 hover:text-white transition-all cursor-pointer">
-              💵 실현손익(금액)순
+              💵 실현손익(쿠키)순
             </button>
             <button type="button" id="rankSort_realizedRate" onclick="setRankingSort('realizedRate')" class="px-2.5 py-1.5 rounded-lg font-bold text-slate-400 hover:text-white transition-all cursor-pointer">
               🎯 실현수익률순
             </button>
           </div>
-          <span class="text-xs text-slate-400 hidden xl:inline">초기지원금: <strong class="text-slate-200 font-mono" id="initSeedMoneyDisplay">0원</strong></span>
+          <span class="text-xs text-slate-400 hidden xl:inline">초기지원금: <strong class="text-slate-200 font-mono" id="initSeedMoneyDisplay">0.000쿠키</strong></span>
         </div>
       </div>
 
@@ -475,7 +462,7 @@
                 <th class="py-3 px-3 text-right">주식 평가액</th>
                 <th class="py-3 px-3 text-right cursor-pointer hover:text-amber-300" onclick="setRankingSort('totalAsset')">총 평가자산 ↕</th>
                 <th class="py-3 px-3 text-right cursor-pointer hover:text-rose-400" onclick="setRankingSort('profitRate')">총 수익률 ↕</th>
-                <th class="py-3 px-3 text-right cursor-pointer hover:text-emerald-400 border-l border-slate-800/80" onclick="setRankingSort('realizedProfit')">실현손익(금액) ↕</th>
+                <th class="py-3 px-3 text-right cursor-pointer hover:text-emerald-400 border-l border-slate-800/80" onclick="setRankingSort('realizedProfit')">실현손익(쿠키) ↕</th>
                 <th class="py-3 px-3 text-right cursor-pointer hover:text-indigo-400" onclick="setRankingSort('realizedRate')">실현수익률 ↕</th>
                 <th class="py-3 px-3 text-center">계좌 관리</th>
               </tr>
@@ -491,13 +478,13 @@
   <div id="tutorialModal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-200">
     <div class="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-3xl shadow-2xl flex flex-col overflow-hidden text-xs p-5 space-y-4">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-        <h3 class="font-extrabold text-base text-amber-300"><i class="fa-solid fa-book-open mr-1.5"></i>4대 랭킹 & 실현손익 산정 안내</h3>
+        <h3 class="font-extrabold text-base text-amber-300"><i class="fa-solid fa-book-open mr-1.5"></i>쿠키 경제 & 4대 랭킹 안내</h3>
         <button type="button" onclick="closeTutorialModal()" class="text-slate-400 hover:text-white text-lg cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="space-y-3 text-slate-300 leading-relaxed">
-        <p>• <strong>1. 총 수익률순 / 2. 총자산순</strong>: 전체 자산 규모와 순수 원금 대비 전체 주식 투자 성과(미실현 평가손익 포함)를 보여줍니다.</p>
-        <p>• <strong>3. 실현손익(금액)순 / 4. 실현수익률순</strong>: 주식을 매수한 뒤 실제로 <strong>매도(판매)하여 확정 지은 순수익금</strong>과 <strong>실제 투자원금 대비 확정 수익률(%)</strong> 순위입니다.</p>
-        <p>• <strong>학급페이(ClassPay)와 완전 분리</strong>:初期 예수금이 0원에서 시작하며, 선생님께 급여나 상점을 받아 예수금이 늘어나거나 매점에서 간식을 사 먹어 예수금이 줄어들어도 주식 수익률과 실현손익은 왜곡되지 않습니다.</p>
+        <p>• <strong>1. 총 수익률순 / 2. 총자산순</strong>: 전체 자산(쿠키) 규모와 순수 원금 대비 전체 주식 투자 성과(미실현 평가손익 포함)를 보여줍니다.</p>
+        <p>• <strong>3. 실현손익(쿠키)순 / 4. 실현수익률순</strong>: 주식을 매수한 뒤 실제로 <strong>매도(판매)하여 확정 지은 순수익 쿠키</strong>와 <strong>실제 투자원금 대비 확정 수익률(%)</strong> 순위입니다.</p>
+        <p>• <strong>학급페이(ClassPay)와 완전 분리</strong>: 초기 예수금이 0.000쿠키에서 시작하며, 급여를 받거나 매점에서 간식·쿠폰을 사 먹어 쿠키가 줄어들어도 주식 수익률과 실현손익은 왜곡되지 않습니다.</p>
       </div>
       <div class="flex justify-end pt-2">
         <button type="button" onclick="closeTutorialModal()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl cursor-pointer">닫기</button>
@@ -551,7 +538,7 @@
 
       <div class="bg-slate-950/80 p-3 rounded-xl border border-slate-800 flex items-center justify-between text-xs mb-4">
         <span class="text-slate-400"><strong id="summaryStudentName" class="text-indigo-300">-</strong> 님의 하루 자산 변동</span>
-        <span id="summaryStudentDailyReturn" class="font-mono font-bold text-sm text-emerald-400">+0원 (+0.00%)</span>
+        <span id="summaryStudentDailyReturn" class="font-mono font-bold text-sm text-emerald-400">+0.000쿠키 (+0.00%)</span>
       </div>
 
       <button type="button" onclick="closeDailySummaryModal()" class="w-full py-3 bg-gradient-to-r from-emerald-600 to-indigo-600 text-white font-extrabold rounded-xl text-xs shadow-lg cursor-pointer">
@@ -603,10 +590,10 @@
             class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-slate-200 outline-none focus:border-indigo-500 font-mono select-text leading-relaxed"></textarea>
           
           <div class="flex items-center justify-between pt-1 text-slate-400">
-            <span>시작 지원 예수금 (기본 0원):</span>
+            <span>시작 지원 예수금 (기본 0.000쿠키):</span>
             <div class="flex items-center gap-1">
-              <input type="number" id="setupSeedMoneyInput" value="0" step="100000" class="w-32 bg-slate-900 border border-slate-800 rounded px-2 py-1 text-right text-slate-200 font-mono select-text">
-              <span>원</span>
+              <input type="number" id="setupSeedMoneyInput" value="0" step="0.001" class="w-32 bg-slate-900 border border-slate-800 rounded px-2 py-1 text-right text-slate-200 font-mono select-text">
+              <span>쿠키</span>
             </div>
           </div>
         </div>
@@ -616,7 +603,7 @@
             <div>
               <label class="font-bold text-slate-200 flex items-center gap-1.5"><i class="fa-solid fa-building text-amber-400"></i>우리 반 거래소 20개 종목 및 비밀 추세 조작</label>
             </div>
-            <button type="button" onclick="restoreDefaultStockNames()" class="text-rose-400 hover:underline text-[11px] cursor-pointer">전 종목 기본값(랜덤 시작가)으로 복원</button>
+            <button type="button" onclick="restoreDefaultStockNames()" class="text-rose-400 hover:underline text-[11px] cursor-pointer">전 종목 기본값(1/1000 랜덤 시작가)으로 복원</button>
           </div>
           <div id="setupStockGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1"></div>
         </div>
@@ -624,7 +611,7 @@
 
       <div class="p-4 border-t border-slate-800 flex items-center justify-between bg-slate-900/90">
         <button type="button" onclick="resetAllGameData()" class="px-3 py-2 rounded-lg bg-rose-950 hover:bg-rose-900 text-rose-300 font-bold border border-rose-800 cursor-pointer">
-          <i class="fa-solid fa-triangle-exclamation mr-1"></i>전체 데이터 1일차(0원) 초기화
+          <i class="fa-solid fa-triangle-exclamation mr-1"></i>전체 데이터 1일차(0쿠키) 초기화
         </button>
         <div class="flex items-center gap-2">
           <button type="button" onclick="closeClassSetupModal()" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold cursor-pointer">닫기</button>
@@ -647,43 +634,49 @@
     const FIREBASE_ROOT_PATH = "kosdaq_training_room";
 
     const STORAGE_KEY_FIREBASE_URL = 'class_stock_training_fb_url_v1';
-    const STORAGE_KEY_CURRENT_ROOM = 'class_stock_training_room_v1';
+    const ROOM_LABELS = { class_1: "연수학급" };
 
-    // 1개 반 단일 체제 설정
-    const ROOM_LABELS = {
-      class_1: "연수학급"
-    };
-
-    function createRandomStartPrice(min, max) {
-      const raw = Math.floor(Math.random() * (max - min + 1)) + min;
-      return Math.round(raw / 500) * 500;
+    // 소수점 셋째 자리 반올림 유틸리티
+    function round3(num) {
+      return Math.round((Number(num) + Number.EPSILON) * 1000) / 1000;
     }
 
-    // 20개 가상 기업 목록 (시작가는 초기화 시 랜덤 생성 기능 포함)
+    // 무조건 소수점 셋째 자리까지 포맷 (예: 12.000)
+    function fmtCookie(num) {
+      const val = round3(Number(num) || 0);
+      return val.toLocaleString('ko-KR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+    }
+
+    // 1/1000 축소 랜덤 시작가 생성 (15.000 ~ 180.000 쿠키)
+    function createRandomStartPrice(min, max) {
+      const raw = Math.random() * (max - min) + min;
+      return round3(Math.round(raw * 2) / 2); // 0.500 단위 깔끔한 시작가
+    }
+
+    // 20개 가상 기업 목록 (1/1000 가격 적용)
     const DEFAULT_STOCKS = [
-      { code: "100100", name: "네오테크", price: createRandomStartPrice(25000, 95000), trend: "none" },
-      { code: "100200", name: "블루오션바이오", price: createRandomStartPrice(40000, 150000), trend: "none" },
-      { code: "100300", name: "스타라이트엔터", price: createRandomStartPrice(18000, 75000), trend: "none" },
-      { code: "100400", name: "퀀텀로보틱스", price: createRandomStartPrice(55000, 180000), trend: "none" },
-      { code: "100500", name: "그린에너지솔루션", price: createRandomStartPrice(30000, 120000), trend: "none" },
-      { code: "100600", name: "코스모스항공", price: createRandomStartPrice(45000, 160000), trend: "none" },
-      { code: "100700", name: "실버라인모빌리티", price: createRandomStartPrice(22000, 88000), trend: "none" },
-      { code: "100800", name: "오즈메타버스", price: createRandomStartPrice(15000, 65000), trend: "none" },
-      { code: "100900", name: "제니스제약", price: createRandomStartPrice(35000, 130000), trend: "none" },
-      { code: "101000", name: "아이언스틸", price: createRandomStartPrice(28000, 92000), trend: "none" },
-      { code: "101100", name: "퓨처케미칼", price: createRandomStartPrice(32000, 110000), trend: "none" },
-      { code: "101200", name: "썬더배터리", price: createRandomStartPrice(60000, 210000), trend: "none" },
-      { code: "101300", name: "가디언라이프", price: createRandomStartPrice(19000, 64000), trend: "none" },
-      { code: "101400", name: "유니온뱅크", price: createRandomStartPrice(24000, 72000), trend: "none" },
-      { code: "101500", name: "글로벌트레이드", price: createRandomStartPrice(21000, 83000), trend: "none" },
-      { code: "101600", name: "드림푸드", price: createRandomStartPrice(12000, 54000), trend: "none" },
-      { code: "101700", name: "스마트기어", price: createRandomStartPrice(27000, 96000), trend: "none" },
-      { code: "101800", name: "에코소재", price: createRandomStartPrice(38000, 140000), trend: "none" },
-      { code: "101900", name: "나노반도체", price: createRandomStartPrice(50000, 195000), trend: "none" },
-      { code: "102000", name: "픽셀게임즈", price: createRandomStartPrice(16000, 78000), trend: "none" }
+      { code: "100100", name: "네오테크", price: createRandomStartPrice(25, 95), trend: "none" },
+      { code: "100200", name: "블루오션바이오", price: createRandomStartPrice(40, 150), trend: "none" },
+      { code: "100300", name: "스타라이트엔터", price: createRandomStartPrice(18, 75), trend: "none" },
+      { code: "100400", name: "퀀텀로보틱스", price: createRandomStartPrice(55, 180), trend: "none" },
+      { code: "100500", name: "그린에너지솔루션", price: createRandomStartPrice(30, 120), trend: "none" },
+      { code: "100600", name: "코스모스항공", price: createRandomStartPrice(45, 160), trend: "none" },
+      { code: "100700", name: "실버라인모빌리티", price: createRandomStartPrice(22, 88), trend: "none" },
+      { code: "100800", name: "오즈메타버스", price: createRandomStartPrice(15, 65), trend: "none" },
+      { code: "100900", name: "제니스제약", price: createRandomStartPrice(35, 130), trend: "none" },
+      { code: "101000", name: "아이언스틸", price: createRandomStartPrice(28, 92), trend: "none" },
+      { code: "101100", name: "퓨처케미칼", price: createRandomStartPrice(32, 110), trend: "none" },
+      { code: "101200", name: "썬더배터리", price: createRandomStartPrice(60, 210), trend: "none" },
+      { code: "101300", name: "가디언라이프", price: createRandomStartPrice(19, 64), trend: "none" },
+      { code: "101400", name: "유니온뱅크", price: createRandomStartPrice(24, 72), trend: "none" },
+      { code: "101500", name: "글로벌트레이드", price: createRandomStartPrice(21, 83), trend: "none" },
+      { code: "101600", name: "드림푸드", price: createRandomStartPrice(12, 54), trend: "none" },
+      { code: "101700", name: "스마트기어", price: createRandomStartPrice(27, 96), trend: "none" },
+      { code: "101800", name: "에코소재", price: createRandomStartPrice(38, 140), trend: "none" },
+      { code: "101900", name: "나노반도체", price: createRandomStartPrice(50, 195), trend: "none" },
+      { code: "102000", name: "픽셀게임즈", price: createRandomStartPrice(16, 78), trend: "none" }
     ];
 
-    // 영어 3글자 스타일 이름 25명
     const DEFAULT_STUDENTS = [
       "제임스", "마이클", "데니스", "루카스", "마커스",
       "펠릭스", "알렉스", "토마스", "찰스", "맥스",
@@ -694,7 +687,7 @@
 
     const UPPER_LIMIT_NEWS = [
       "차세대 신기술 세계 최초 상용화 성공 소식에 장 시작과 동시에 매수 잔량 폭발!",
-      "글로벌 빅테크 기업과 수조 원 규모의 초대형 독점 공급 계약 체결 공시!",
+      "글로벌 빅테크 기업과 초대형 독점 공급 계약 체결 공시!",
       "임상 3상 시험 전격 통과! 신약 허가 기대감에 상한가 직행!",
       "기관 및 외국인 투자자의 대규모 매수세 유입으로 상한가 안착!",
       "정부의 파격적인 산업 육성 정책 및 대규모 세제 혜택 수혜주로 지목!"
@@ -712,7 +705,7 @@
     let roomTeacherPin = "10101";
 
     let marketDay = 1;
-    let seedMoney = 0; // 초기 예수금 0원 시작
+    let seedMoney = 0; // 초기 예수금 0.000쿠키 시작
     let stocks = [];
     let students = {};
     let currentStudentName = "";
@@ -767,12 +760,10 @@
       }, 3000);
     }
 
-    function getLocalKeyForRoom(roomId) { return `class_stock_training_game_${roomId}`; }
-    function getSnapshotKeyForRoom(roomId) { return `class_stock_training_undo_${roomId}`; }
-    function getMyNameKeyForRoom(roomId) { return `class_stock_training_my_name_${roomId}`; }
-    function getFirebasePathForRoom() {
-      return FIREBASE_ROOT_PATH;
-    }
+    function getLocalKeyForRoom(roomId) { return `class_stock_cookie_game_${roomId}`; }
+    function getSnapshotKeyForRoom(roomId) { return `class_stock_cookie_undo_${roomId}`; }
+    function getMyNameKeyForRoom(roomId) { return `class_stock_cookie_my_name_${roomId}`; }
+    function getFirebasePathForRoom() { return FIREBASE_ROOT_PATH; }
 
     function updateRoomSelectorUI() {
       const shortName = roomCustomTitle || ROOM_LABELS[currentRoomId] || "연수학급";
@@ -780,7 +771,7 @@
       const badgeEl = document.getElementById('headerRoomBadge');
       if (badgeEl) badgeEl.textContent = `${shortName} 서버`;
       document.getElementById('loginRoomTitleDisplay').textContent = displayTitle;
-      document.getElementById('headerClassCustomTitle').textContent = `${shortName} 실시간 모의투자`;
+      document.getElementById('headerClassCustomTitle').textContent = `${shortName} 실시간 쿠키 모의투자`;
       document.getElementById('hudRoomBadge').textContent = shortName;
       document.getElementById('rankingRoomTitle').textContent = shortName;
       document.getElementById('macroRoomBadge').textContent = `${shortName} 교사 컨트롤`;
@@ -833,7 +824,7 @@
           const prevDay = marketDay;
           const incomingDay = Number(cloudData.marketDay) || 1;
           marketDay = incomingDay;
-          seedMoney = cloudData.seedMoney !== undefined ? Number(cloudData.seedMoney) : 0;
+          seedMoney = cloudData.seedMoney !== undefined ? round3(cloudData.seedMoney) : 0;
           economyPhase = Number(cloudData.economyPhase) || 3;
           roomCustomTitle = cloudData.roomCustomTitle || "";
           roomTeacherPin = cloudData.roomTeacherPin ? String(cloudData.roomTeacherPin) : "10101";
@@ -844,12 +835,12 @@
           stocks = rawStocks.filter(Boolean).map(s => ({
             ...s,
             code: String(s.code),
-            price: Number(s.price) || 1000,
-            basePrice: Number(s.basePrice || s.price) || 1000,
-            change: Number(s.change) || 0,
+            price: round3(s.price) || 1,
+            basePrice: round3(s.basePrice || s.price) || 1,
+            change: round3(s.change) || 0,
             rate: Number(s.rate) || 0,
             trend: s.trend || "none",
-            history: Array.isArray(s.history) ? s.history.map(Number) : [Number(s.price) || 1000]
+            history: Array.isArray(s.history) ? s.history.map(v => round3(v)) : [round3(s.price) || 1]
           }));
 
           const restoredStudents = {};
@@ -861,16 +852,16 @@
                 if (hVal && Number(hVal.qty) > 0) {
                   cleanHoldings[String(kCode)] = {
                     qty: Number(hVal.qty),
-                    totalCost: Number(hVal.totalCost) || 0
+                    totalCost: round3(hVal.totalCost) || 0
                   };
                 }
               });
             }
             restoredStudents[sName] = {
-              cash: sObj.cash !== undefined ? Number(sObj.cash) : seedMoney,
-              netDeposit: Number(sObj.netDeposit) || 0,
-              realizedProfit: Number(sObj.realizedProfit) || 0,
-              realizedCost: Number(sObj.realizedCost) || 0,
+              cash: sObj.cash !== undefined ? round3(sObj.cash) : seedMoney,
+              netDeposit: round3(sObj.netDeposit) || 0,
+              realizedProfit: round3(sObj.realizedProfit) || 0,
+              realizedCost: round3(sObj.realizedCost) || 0,
               pin: sObj.pin ? String(sObj.pin) : "1234",
               holdings: cleanHoldings
             };
@@ -954,10 +945,10 @@
         const path = getFirebasePathForRoom(currentRoomId);
         const st = students[studentName];
         firebaseDb.ref(`${path}/students/${studentName}`).update({
-          cash: Number(st.cash) || 0,
-          netDeposit: Number(st.netDeposit) || 0,
-          realizedProfit: Number(st.realizedProfit) || 0,
-          realizedCost: Number(st.realizedCost) || 0,
+          cash: round3(st.cash),
+          netDeposit: round3(st.netDeposit),
+          realizedProfit: round3(st.realizedProfit),
+          realizedCost: round3(st.realizedCost),
           pin: String(st.pin || "1234"),
           holdings: st.holdings || {}
         }).catch(err => {
@@ -1119,7 +1110,7 @@
           roomCustomTitle = data.roomCustomTitle || "";
           roomTeacherPin = data.roomTeacherPin || "10101";
           marketDay = Number(data.marketDay) || 1;
-          seedMoney = data.seedMoney !== undefined ? Number(data.seedMoney) : 0;
+          seedMoney = data.seedMoney !== undefined ? round3(data.seedMoney) : 0;
           stocks = data.stocks || [];
           students = data.students || {};
           currentStudentName = data.currentStudentName || Object.keys(students)[0];
@@ -1168,7 +1159,7 @@
       roomCustomTitle = "";
       roomTeacherPin = "10101";
       marketDay = 1;
-      seedMoney = 0; // 초기 예수금 0원
+      seedMoney = 0;
       economyPhase = 3;
       prevTurnStudentAssets = {};
       prevTurnStudentRanks = {};
@@ -1178,7 +1169,7 @@
 
     function setupDefaultStocks() {
       stocks = DEFAULT_STOCKS.map(item => {
-        const randPrice = createRandomStartPrice(15000, 180000);
+        const randPrice = createRandomStartPrice(15, 180);
         return {
           code: item.code, name: item.name, price: randPrice, basePrice: randPrice,
           change: 0, rate: 0, trend: "none", isUpperLimit: false, isLowerLimit: false, history: [randPrice]
@@ -1247,9 +1238,9 @@
       const limitHits = [];
 
       stocks.forEach(stock => {
-        stock.basePrice = stock.price;
-        const upperLimit = Math.floor(stock.basePrice * 1.30);
-        const lowerLimit = Math.ceil(stock.basePrice * 0.70);
+        stock.basePrice = round3(stock.price);
+        const upperLimit = round3(stock.basePrice * 1.30);
+        const lowerLimit = round3(stock.basePrice * 0.70);
 
         const u1 = Math.random(), u2 = Math.random();
         const randStdNormal = Math.sqrt(-2.0 * Math.log(u1 || 0.001)) * Math.cos(2.0 * Math.PI * u2);
@@ -1274,14 +1265,14 @@
           }
         }
 
-        let newPrice = Math.round(stock.basePrice * (1 + rawRate));
-        if (newPrice > 1000) newPrice = Math.round(newPrice / 10) * 10;
-        if (newPrice > 100000) newPrice = Math.round(newPrice / 100) * 100;
+        // 소수점 셋째 자리까지 계산
+        let newPrice = round3(stock.basePrice * (1 + rawRate));
+        if (newPrice < 0.1) newPrice = 0.100;
 
         if (stock.trend === "up" && economyPhase >= 3 && newPrice <= stock.basePrice) {
-          newPrice = stock.basePrice + (stock.basePrice > 100000 ? 100 : 10);
+          newPrice = round3(stock.basePrice + 0.050);
         } else if (stock.trend === "down" && economyPhase <= 3 && newPrice >= stock.basePrice) {
-          newPrice = Math.max(100, stock.basePrice - (stock.basePrice > 100000 ? 100 : 10));
+          newPrice = Math.max(0.100, round3(stock.basePrice - 0.050));
         }
 
         stock.isUpperLimit = false;
@@ -1297,9 +1288,9 @@
           limitHits.push({ stock, type: 'DOWN', news: LOWER_LIMIT_NEWS[Math.floor(Math.random() * LOWER_LIMIT_NEWS.length)] });
         }
 
-        stock.price = newPrice;
-        stock.change = stock.price - stock.basePrice;
-        stock.rate = ((stock.change / stock.basePrice) * 100);
+        stock.price = round3(newPrice);
+        stock.change = round3(stock.price - stock.basePrice);
+        stock.rate = stock.basePrice > 0 ? ((stock.change / stock.basePrice) * 100) : 0;
         stock.history.push(stock.price);
         if (stock.history.length > 30) stock.history.shift();
       });
@@ -1319,55 +1310,56 @@
       const sData = students[currentStudentName];
       if (!sData) return;
 
-      const curNetDep = Number(sData.netDeposit) || 0;
+      const curNetDep = round3(sData.netDeposit) || 0;
 
       const input = prompt(
-        `[${currentStudentName}] 학생 예수금 입출금 (총수익률 및 실현손익에 영향을 주지 않습니다)\n\n` +
-        `1) 일반 입출금:\n` +
-        `   • 입금(상점·급여): 50000  /  출금(벌금): -30000\n\n` +
-        `2) 이전에 넣어준 돈 때문에 부풀려진 총수익률 원금만 바로잡을 때:\n` +
-        `   • 앞에 '='를 붙여 누적 입금액 입력 (예: =1000000)\n\n` +
-        `현재 보유 예수금: ${Number(sData.cash).toLocaleString()}원`,
-        "100000"
+        `[${currentStudentName}] 학생 쿠키 입출금 (총수익률 및 실현손익에 영향을 주지 않습니다)\n\n` +
+        `1) 일반 입출금 (소수점 3자리 가능):\n` +
+        `   • 입금(급여): 50  또는  12.500\n` +
+        `   • 출금(벌금): -30  또는  -5.500\n\n` +
+        `2) 누적 입출금 원금 보정 시 앞에 '=' 입력 (예: =100)\n\n` +
+        `현재 보유 예수금: ${fmtCookie(sData.cash)}쿠키`,
+        "100"
       );
       if (input === null) return;
 
       const trimmed = input.trim();
 
       if (trimmed.startsWith('=')) {
-        const targetNetDep = parseInt(trimmed.slice(1).replace(/,/g, ''), 10);
+        const targetNetDep = parseFloat(trimmed.slice(1).replace(/,/g, ''));
         if (isNaN(targetNetDep)) {
           showOrderToast("⚠️ '=숫자' 형식으로 올바르게 입력해주세요.", "error");
           return;
         }
-        sData.netDeposit = targetNetDep;
+        sData.netDeposit = round3(targetNetDep);
         pushSingleStudentToCloud(currentStudentName);
         renderAll();
         showOrderToast(`✅ [${currentStudentName}] 누적 입출금 원금 보정이 완료되었습니다!`, "success");
         return;
       }
 
-      const amount = parseInt(trimmed.replace(/,/g, ''), 10);
-      if (isNaN(amount) || amount === 0) {
-        showOrderToast("⚠️ 올바른 금액을 숫자로 입력해주세요.", "error");
+      const amount = parseFloat(trimmed.replace(/,/g, ''));
+      if (isNaN(amount) || round3(amount) === 0) {
+        showOrderToast("⚠️ 올바른 쿠키 수량을 숫자로 입력해주세요.", "error");
         return;
       }
 
-      if (Number(sData.cash) + amount < 0) {
-        showOrderToast(`❌ 출금액이 현재 예수금(${Number(sData.cash).toLocaleString()}원)보다 클 수 없습니다.`, "error");
+      const rAmt = round3(amount);
+      if (round3(Number(sData.cash) + rAmt) < 0) {
+        showOrderToast(`❌ 출금 쿠키가 현재 잔액(${fmtCookie(sData.cash)}쿠키)보다 클 수 없습니다.`, "error");
         return;
       }
 
-      sData.cash = Number(sData.cash) + amount;
-      sData.netDeposit = curNetDep + amount;
+      sData.cash = round3(Number(sData.cash) + rAmt);
+      sData.netDeposit = round3(curNetDep + rAmt);
 
       pushSingleStudentToCloud(currentStudentName);
       renderAll();
 
-      if (amount > 0) {
-        showOrderToast(`💰 [${currentStudentName}] +${amount.toLocaleString()}원 입금 완료!`, "success");
+      if (rAmt > 0) {
+        showOrderToast(`🍪 [${currentStudentName}] +${fmtCookie(rAmt)}쿠키 입금 완료!`, "success");
       } else {
-        showOrderToast(`💸 [${currentStudentName}] ${amount.toLocaleString()}원 출금 완료!`, "sell");
+        showOrderToast(`🍪 [${currentStudentName}] ${fmtCookie(rAmt)}쿠키 출금 완료!`, "sell");
       }
     }
 
@@ -1376,32 +1368,32 @@
       const sData = students[currentStudentName];
       if (!sData) return;
 
-      const curProfit = Number(sData.realizedProfit) || 0;
-      const curCost = Number(sData.realizedCost) || 0;
+      const curProfit = round3(sData.realizedProfit) || 0;
+      const curCost = round3(sData.realizedCost) || 0;
 
       const input = prompt(
         `[${currentStudentName}] 학생의 누적 실현손익 및 누적 매도원금을 수동 설정합니다.\n` +
         `'실현손익:투자원금' 형식으로 입력하세요. (초기화하려면 0:0 입력)\n\n` +
-        `예시) 100만원 투자해 10만원 벌었을 때 ➔ 100000:1000000\n` +
+        `예시) 100쿠키 투자해 10쿠키 벌었을 때 ➔ 10:100\n` +
         `현재 값 ➔ ${curProfit}:${curCost}`,
         `${curProfit}:${curCost}`
       );
       if (input === null) return;
 
       const parts = input.split(':');
-      const newProfit = parseInt((parts[0] || "0").replace(/,/g, ''), 10);
-      const newCost = parseInt((parts[1] || "0").replace(/,/g, ''), 10);
+      const newProfit = parseFloat((parts[0] || "0").replace(/,/g, ''));
+      const newCost = parseFloat((parts[1] || "0").replace(/,/g, ''));
 
       if (isNaN(newProfit) || isNaN(newCost) || newCost < 0) {
         showOrderToast("⚠️ '실현손익:투자원금' 형식으로 숫자를 입력해주세요.", "error");
         return;
       }
 
-      sData.realizedProfit = newProfit;
-      sData.realizedCost = newCost;
+      sData.realizedProfit = round3(newProfit);
+      sData.realizedCost = round3(newCost);
       pushSingleStudentToCloud(currentStudentName);
       renderAll();
-      showOrderToast(`✅ [${currentStudentName}] 실현손익(${newProfit.toLocaleString()}원) 보정이 완료되었습니다!`, "success");
+      showOrderToast(`✅ [${currentStudentName}] 실현손익(${fmtCookie(newProfit)}쿠키) 보정이 완료되었습니다!`, "success");
     }
 
     function ensureActiveAccountAndStock() {
@@ -1436,22 +1428,22 @@
         showOrderToast("⚠️ 주문 수량을 1주 이상 입력해주세요!", "error");
         return;
       }
-      const stockPrice = Number(s.price) || 0;
-      const totalOrderAmount = qty * stockPrice;
+      const stockPrice = round3(s.price);
+      const totalOrderAmount = round3(qty * stockPrice);
 
       if (currentOrderType === 'buy') {
-        if (Number(sData.cash) < totalOrderAmount) {
-          showOrderToast(`❌ 예수금 부족! (필요: ${totalOrderAmount.toLocaleString()}원)`, "error");
+        if (round3(sData.cash) < totalOrderAmount) {
+          showOrderToast(`❌ 쿠키 부족! (필요: ${fmtCookie(totalOrderAmount)}쿠키)`, "error");
           return;
         }
-        sData.cash = Number(sData.cash) - totalOrderAmount;
+        sData.cash = round3(Number(sData.cash) - totalOrderAmount);
         if (!sData.holdings[s.code]) sData.holdings[s.code] = { qty: 0, totalCost: 0 };
         sData.holdings[s.code].qty = Number(sData.holdings[s.code].qty) + qty;
-        sData.holdings[s.code].totalCost = Number(sData.holdings[s.code].totalCost) + totalOrderAmount;
+        sData.holdings[s.code].totalCost = round3(Number(sData.holdings[s.code].totalCost) + totalOrderAmount);
 
         pushSingleStudentToCloud(currentStudentName);
         renderAll();
-        showOrderToast(`✅ [${currentStudentName}] ${s.name} ${qty}주 매수 체결!`, 'success');
+        showOrderToast(`✅ [${currentStudentName}] ${s.name} ${qty}주 매수 체결! (-${fmtCookie(totalOrderAmount)}쿠키)`, 'success');
       } else {
         const currentQty = (sData.holdings && sData.holdings[s.code]) ? Number(sData.holdings[s.code].qty) : 0;
         if (currentQty < qty) {
@@ -1459,22 +1451,22 @@
           return;
         }
         const avgPrice = Number(sData.holdings[s.code].totalCost) / currentQty;
-        const costBasis = Math.round(avgPrice * qty);
-        const tradeProfit = totalOrderAmount - costBasis;
+        const costBasis = round3(avgPrice * qty);
+        const tradeProfit = round3(totalOrderAmount - costBasis);
         const tradeRate = costBasis > 0 ? ((tradeProfit / costBasis) * 100).toFixed(2) : "0.00";
 
-        sData.cash = Number(sData.cash) + totalOrderAmount;
-        sData.realizedCost = (Number(sData.realizedCost) || 0) + costBasis;
-        sData.realizedProfit = (Number(sData.realizedProfit) || 0) + tradeProfit;
+        sData.cash = round3(Number(sData.cash) + totalOrderAmount);
+        sData.realizedCost = round3((Number(sData.realizedCost) || 0) + costBasis);
+        sData.realizedProfit = round3((Number(sData.realizedProfit) || 0) + tradeProfit);
 
         sData.holdings[s.code].qty = currentQty - qty;
-        sData.holdings[s.code].totalCost = Math.max(0, Number(sData.holdings[s.code].totalCost) - costBasis);
+        sData.holdings[s.code].totalCost = Math.max(0, round3(Number(sData.holdings[s.code].totalCost) - costBasis));
         if (sData.holdings[s.code].qty <= 0) delete sData.holdings[s.code];
 
         pushSingleStudentToCloud(currentStudentName);
         renderAll();
         const pSign = tradeProfit >= 0 ? '+' : '';
-        showOrderToast(`💰 ${s.name} ${qty}주 매도 확정! (실현손익: ${pSign}${tradeProfit.toLocaleString()}원 / ${pSign}${tradeRate}%)`, 'sell');
+        showOrderToast(`🍪 ${s.name} ${qty}주 매도 확정! (실현손익: ${pSign}${fmtCookie(tradeProfit)}쿠키 / ${pSign}${tradeRate}%)`, 'sell');
       }
     }
 
@@ -1492,54 +1484,54 @@
         const s = stocks.find(x => String(x.code) === String(code));
         if (s) {
           const q = Number(sData.holdings[code].qty);
-          const c = Number(sData.holdings[code].totalCost) || 0;
-          totalSoldAmount += Number(s.price) * q;
-          totalSoldCost += c;
+          const c = round3(sData.holdings[code].totalCost) || 0;
+          totalSoldAmount = round3(totalSoldAmount + round3(s.price) * q);
+          totalSoldCost = round3(totalSoldCost + c);
           delete sData.holdings[code];
         }
       });
 
-      const batchProfit = totalSoldAmount - totalSoldCost;
-      sData.cash = Number(sData.cash) + totalSoldAmount;
-      sData.realizedCost = (Number(sData.realizedCost) || 0) + totalSoldCost;
-      sData.realizedProfit = (Number(sData.realizedProfit) || 0) + batchProfit;
+      const batchProfit = round3(totalSoldAmount - totalSoldCost);
+      sData.cash = round3(Number(sData.cash) + totalSoldAmount);
+      sData.realizedCost = round3((Number(sData.realizedCost) || 0) + totalSoldCost);
+      sData.realizedProfit = round3((Number(sData.realizedProfit) || 0) + batchProfit);
 
       pushSingleStudentToCloud(currentStudentName);
       renderAll();
       const pSign = batchProfit >= 0 ? '+' : '';
-      showOrderToast(`💰 전량 매도 확정! (이번 실현손익: ${pSign}${batchProfit.toLocaleString()}원)`, "sell");
+      showOrderToast(`🍪 전량 매도 확정! (이번 실현손익: ${pSign}${fmtCookie(batchProfit)}쿠키)`, "sell");
     }
 
     function aiRandomBuy() {
       ensureActiveAccountAndStock();
       const sData = students[currentStudentName];
-      const minStockPrice = Math.min(...stocks.map(s => Number(s.price)));
-      if (Number(sData.cash) < minStockPrice) {
-        showOrderToast(`❌ 예수금이 부족하여 AI 매수를 실행할 수 없습니다!`, "error");
+      const minStockPrice = Math.min(...stocks.map(s => round3(s.price)));
+      if (round3(sData.cash) < minStockPrice) {
+        showOrderToast(`❌ 쿠키가 부족하여 AI 매수를 실행할 수 없습니다!`, "error");
         return;
       }
       let loopSafety = 0;
       let totalSpent = 0;
-      while (Number(sData.cash) >= minStockPrice && loopSafety < 80) {
+      while (round3(sData.cash) >= minStockPrice && loopSafety < 80) {
         loopSafety++;
         const randomStock = stocks[Math.floor(Math.random() * stocks.length)];
-        const sPrice = Number(randomStock.price);
-        if (Number(sData.cash) >= sPrice) {
-          const maxPossible = Math.floor(Number(sData.cash) / sPrice);
+        const sPrice = round3(randomStock.price);
+        if (round3(sData.cash) >= sPrice) {
+          const maxPossible = Math.floor(round3(sData.cash) / sPrice);
           const buyQty = Math.max(1, Math.floor(Math.random() * Math.min(maxPossible, 5)) + 1);
-          const cost = sPrice * buyQty;
-          if (Number(sData.cash) >= cost) {
-            sData.cash = Number(sData.cash) - cost;
-            totalSpent += cost;
+          const cost = round3(sPrice * buyQty);
+          if (round3(sData.cash) >= cost) {
+            sData.cash = round3(Number(sData.cash) - cost);
+            totalSpent = round3(totalSpent + cost);
             if (!sData.holdings[randomStock.code]) sData.holdings[randomStock.code] = { qty: 0, totalCost: 0 };
             sData.holdings[randomStock.code].qty = Number(sData.holdings[randomStock.code].qty) + buyQty;
-            sData.holdings[randomStock.code].totalCost = Number(sData.holdings[randomStock.code].totalCost) + cost;
+            sData.holdings[randomStock.code].totalCost = round3(Number(sData.holdings[randomStock.code].totalCost) + cost);
           }
         }
       }
       pushSingleStudentToCloud(currentStudentName);
       renderAll();
-      showOrderToast(`🤖 [${currentStudentName}] AI 분산 매수 완료! (${totalSpent.toLocaleString()}원 투자)`, "success");
+      showOrderToast(`🤖 [${currentStudentName}] AI 분산 매수 완료! (${fmtCookie(totalSpent)}쿠키 투자)`, "success");
     }
 
     function switchMainView(view) {
@@ -1564,7 +1556,7 @@
       ensureActiveAccountAndStock();
       document.getElementById('turnDisplay').textContent = `${marketDay}일차`;
       const seedEl = document.getElementById('initSeedMoneyDisplay');
-      if (seedEl) seedEl.textContent = `${seedMoney.toLocaleString()}원`;
+      if (seedEl) seedEl.textContent = `${fmtCookie(seedMoney)}쿠키`;
       renderStudentSelector();
       renderStockList();
       renderDetailView();
@@ -1598,7 +1590,6 @@
       updateOrderCalculation();
     }
 
-    // 초기 예수금이 0원일 때도 오류가 나지 않도록 안전 분모(effectiveBase) 처리
     function getStudentStats(name) {
       const sData = students[name] || { cash: seedMoney, netDeposit: 0, realizedProfit: 0, realizedCost: 0, holdings: {} };
       let stockValue = 0;
@@ -1606,47 +1597,38 @@
       for (const [code, h] of Object.entries(sData.holdings || {})) {
         const s = stocks.find(x => String(x.code) === String(code));
         if (s && Number(h.qty) > 0) {
-          stockValue += Number(s.price) * Number(h.qty);
-          holdingCost += Number(h.totalCost);
+          stockValue = round3(stockValue + round3(s.price) * Number(h.qty));
+          holdingCost = round3(holdingCost + round3(h.totalCost));
         }
       }
-      const cashVal = Number(sData.cash) || 0;
-      const totalAsset = cashVal + stockValue;
-      const netDep = Number(sData.netDeposit) || 0;
-      const basePrincipal = seedMoney + netDep;
-      const pureStockProfit = totalAsset - basePrincipal;
+      const cashVal = round3(sData.cash);
+      const totalAsset = round3(cashVal + stockValue);
+      const netDep = round3(sData.netDeposit);
+      const basePrincipal = round3(seedMoney + netDep);
+      const pureStockProfit = round3(totalAsset - basePrincipal);
 
-      const realizedProfit = Number(sData.realizedProfit) || 0;
-      const realizedCost = Number(sData.realizedCost) || 0;
+      const realizedProfit = round3(sData.realizedProfit);
+      const realizedCost = round3(sData.realizedCost);
       const realizedRate = realizedCost > 0 ? (realizedProfit / realizedCost) * 100 : 0;
 
-      // 초기 지원금이 0원인 경우 교사 입금액(basePrincipal) 또는 투자원금을 기준으로 수익률 계산
-      const effectiveBase = basePrincipal > 0 ? basePrincipal : (holdingCost + realizedCost);
+      const effectiveBase = basePrincipal > 0 ? basePrincipal : round3(holdingCost + realizedCost);
       const profitRate = effectiveBase > 0 ? (pureStockProfit / effectiveBase) * 100 : 0;
 
-      const unrealizedProfit = stockValue - holdingCost;
+      const unrealizedProfit = round3(stockValue - holdingCost);
       const unrealizedRate = holdingCost > 0 ? (unrealizedProfit / holdingCost) * 100 : 0;
 
       return {
-        cash: cashVal,
-        stockValue,
-        holdingCost,
-        totalAsset,
-        profitRate,
-        pureStockProfit,
-        unrealizedProfit,
-        unrealizedRate,
-        realizedProfit,
-        realizedCost,
-        realizedRate
+        cash: cashVal, stockValue, holdingCost, totalAsset,
+        profitRate, pureStockProfit, unrealizedProfit, unrealizedRate,
+        realizedProfit, realizedCost, realizedRate
       };
     }
 
     function renderStudentHUD() {
       document.getElementById('hudStudentName').textContent = currentStudentName;
       const stats = getStudentStats(currentStudentName);
-      document.getElementById('studentCashDisplay').textContent = `${stats.cash.toLocaleString()}원`;
-      document.getElementById('studentTotalAssetDisplay').textContent = `${stats.totalAsset.toLocaleString()}원`;
+      document.getElementById('studentCashDisplay').textContent = `${fmtCookie(stats.cash)}쿠키`;
+      document.getElementById('studentTotalAssetDisplay').textContent = `${fmtCookie(stats.totalAsset)}쿠키`;
 
       const tSign = stats.profitRate > 0 ? '+' : '';
       const tColor = stats.profitRate > 0 ? 'price-up' : (stats.profitRate < 0 ? 'price-down' : 'text-slate-400');
@@ -1658,16 +1640,16 @@
       const pColor = stats.realizedProfit > 0 ? 'price-up' : (stats.realizedProfit < 0 ? 'price-down' : 'text-slate-200');
 
       const rpEl = document.getElementById('studentRealizedProfitDisplay');
-      rpEl.textContent = `${pSign}${stats.realizedProfit.toLocaleString()}원`;
+      rpEl.textContent = `${pSign}${fmtCookie(stats.realizedProfit)}쿠키`;
       rpEl.className = `font-black ${pColor}`;
 
       const rrEl = document.getElementById('studentRealizedRateDisplay');
       rrEl.textContent = `${pSign}${stats.realizedRate.toFixed(2)}%`;
       rrEl.className = `font-black ${pColor}`;
 
-      document.getElementById('summaryInvestedCost').textContent = `${stats.realizedCost.toLocaleString()}원`;
+      document.getElementById('summaryInvestedCost').textContent = `${fmtCookie(stats.realizedCost)}쿠키`;
       const sumRp = document.getElementById('summaryRealizedProfit');
-      sumRp.textContent = `${pSign}${stats.realizedProfit.toLocaleString()}원`;
+      sumRp.textContent = `${pSign}${fmtCookie(stats.realizedProfit)}쿠키`;
       sumRp.className = `font-black text-sm ${pColor}`;
 
       const sumRr = document.getElementById('summaryRealizedRate');
@@ -1677,7 +1659,7 @@
       const uSign = stats.unrealizedProfit > 0 ? '+' : '';
       const uColor = stats.unrealizedProfit > 0 ? 'price-up' : (stats.unrealizedProfit < 0 ? 'price-down' : 'text-slate-400');
       const sumUp = document.getElementById('summaryUnrealizedProfit');
-      sumUp.textContent = `${uSign}${stats.unrealizedProfit.toLocaleString()}원 (${uSign}${stats.unrealizedRate.toFixed(2)}%)`;
+      sumUp.textContent = `${uSign}${fmtCookie(stats.unrealizedProfit)}쿠키 (${uSign}${stats.unrealizedRate.toFixed(2)}%)`;
       sumUp.className = `font-bold text-sm ${uColor}`;
     }
 
@@ -1696,10 +1678,10 @@
         const s = stocks.find(x => String(x.code) === String(code));
         if (!s) return '';
         const qty = Number(h.qty);
-        const cost = Number(h.totalCost);
-        const avgPrice = Math.round(cost / qty);
-        const evalValue = Number(s.price) * qty;
-        const profit = evalValue - cost;
+        const cost = round3(h.totalCost);
+        const avgPrice = round3(cost / qty);
+        const evalValue = round3(round3(s.price) * qty);
+        const profit = round3(evalValue - cost);
         const profitRate = cost > 0 ? (profit / cost) * 100 : 0;
         const sign = profit >= 0 ? '+' : '';
         const colorClass = profit >= 0 ? 'price-up' : 'price-down';
@@ -1708,8 +1690,8 @@
           <tr class="hover:bg-slate-800/30">
             <td class="py-1.5 font-bold text-slate-200 cursor-pointer" onclick="selectStock('${s.code}')">${s.name}</td>
             <td class="py-1.5 font-bold text-slate-100">${qty.toLocaleString()}주</td>
-            <td class="py-1.5 text-slate-400">${avgPrice.toLocaleString()}원</td>
-            <td class="py-1.5 font-bold ${colorClass}">${sign}${profit.toLocaleString()}원</td>
+            <td class="py-1.5 text-slate-400">${fmtCookie(avgPrice)}쿠키</td>
+            <td class="py-1.5 font-bold ${colorClass}">${sign}${fmtCookie(profit)}쿠키</td>
             <td class="py-1.5 text-right font-bold ${colorClass}">${sign}${profitRate.toFixed(2)}%</td>
           </tr>
         `;
@@ -1729,7 +1711,7 @@
         if (h && Number(h.qty) > 0) {
           const q = Number(h.qty);
           totalIssuedQty += q;
-          holders.push({ name, qty: q, evalValue: Number(s.price) * q });
+          holders.push({ name, qty: q, evalValue: round3(round3(s.price) * q) });
         }
       });
 
@@ -1750,7 +1732,7 @@
               ${isCurrent ? `<span class="text-[9px] px-1 py-0.1 rounded bg-indigo-600 text-white font-bold">본인</span>` : ''}
             </td>
             <td class="py-1.5 text-right font-bold text-slate-100">${h.qty.toLocaleString()}주</td>
-            <td class="py-1.5 text-right text-slate-300">${h.evalValue.toLocaleString()}원</td>
+            <td class="py-1.5 text-right text-slate-300">${fmtCookie(h.evalValue)}쿠키</td>
             <td class="py-1.5 text-right text-indigo-400 font-bold">${sharePercent}%</td>
           </tr>
         `;
@@ -1768,11 +1750,9 @@
       Object.keys(modes).forEach(k => {
         const btn = document.getElementById(`rankSort_${k}`);
         if (!btn) return;
-        if (k === mode) {
-          btn.className = `px-2.5 py-1.5 rounded-lg transition-all cursor-pointer ${modes[k]}`;
-        } else {
-          btn.className = "px-2.5 py-1.5 rounded-lg font-bold text-slate-400 hover:text-white transition-all cursor-pointer";
-        }
+        btn.className = (k === mode)
+          ? `px-2.5 py-1.5 rounded-lg transition-all cursor-pointer ${modes[k]}`
+          : "px-2.5 py-1.5 rounded-lg font-bold text-slate-400 hover:text-white transition-all cursor-pointer";
       });
       renderClassRankingTable();
     }
@@ -1829,11 +1809,11 @@
               <span>${item.name}</span>
               ${isCurrent ? `<span class="text-[9px] px-1.5 py-0.2 rounded bg-indigo-600 text-white font-bold">내 계좌</span>` : ''}
             </td>
-            <td class="py-3 px-3 text-right text-emerald-400/90">${item.cash.toLocaleString()}원</td>
-            <td class="py-3 px-3 text-right text-slate-300">${item.stockValue.toLocaleString()}원</td>
-            <td class="py-3 px-3 text-right font-black text-slate-100 text-sm ${hiAsset}">${item.totalAsset.toLocaleString()}원</td>
+            <td class="py-3 px-3 text-right text-emerald-400/90">${fmtCookie(item.cash)}쿠키</td>
+            <td class="py-3 px-3 text-right text-slate-300">${fmtCookie(item.stockValue)}쿠키</td>
+            <td class="py-3 px-3 text-right font-black text-slate-100 text-sm ${hiAsset}">${fmtCookie(item.totalAsset)}쿠키</td>
             <td class="py-3 px-3 text-right font-extrabold ${tColor} ${hiRate}">${tSign}${item.profitRate.toFixed(2)}%</td>
-            <td class="py-3 px-3 text-right font-black border-l border-slate-800/80 ${rColor} ${hiRealProfit}">${rSign}${item.realizedProfit.toLocaleString()}원</td>
+            <td class="py-3 px-3 text-right font-black border-l border-slate-800/80 ${rColor} ${hiRealProfit}">${rSign}${fmtCookie(item.realizedProfit)}쿠키</td>
             <td class="py-3 px-3 text-right font-extrabold ${rColor} ${hiRealRate}">${rSign}${item.realizedRate.toFixed(2)}%</td>
             <td class="py-3 px-3 text-center">${actionBtn}</td>
           </tr>
@@ -1881,7 +1861,7 @@
               <div class="text-[10px] font-mono text-slate-500 mt-0.5">${s.code}</div>
             </div>
             <div class="text-right font-mono">
-              <div class="font-bold text-xs text-slate-100">${Number(s.price).toLocaleString()}원</div>
+              <div class="font-bold text-xs text-slate-100">${fmtCookie(s.price)}쿠키</div>
               <div class="text-[11px] font-semibold ${colorClass}">${sign}${Number(s.rate).toFixed(2)}%</div>
             </div>
           </div>
@@ -1903,14 +1883,14 @@
 
       document.getElementById('detailStockName').textContent = s.name;
       document.getElementById('detailStockCode').textContent = s.code;
-      document.getElementById('detailPrice').textContent = `${Number(s.price).toLocaleString()}원`;
+      document.getElementById('detailPrice').textContent = `${fmtCookie(s.price)}쿠키`;
 
       const isUp = s.change > 0, isDown = s.change < 0;
       const sign = isUp ? '+' : '';
       const colorClass = isUp ? 'price-up' : (isDown ? 'price-down' : 'text-slate-400');
 
       const detailDiff = document.getElementById('detailDiff');
-      detailDiff.textContent = `${sign}${Number(s.change).toLocaleString()} (${sign}${Number(s.rate).toFixed(2)}%)`;
+      detailDiff.textContent = `${sign}${fmtCookie(s.change)}쿠키 (${sign}${Number(s.rate).toFixed(2)}%)`;
       detailDiff.className = `text-xs font-bold font-mono ${colorClass}`;
 
       const limitBadge = document.getElementById('limitBadge');
@@ -1924,10 +1904,10 @@
         limitBadge.className = 'hidden';
       }
 
-      document.getElementById('detailUpperLimit').textContent = `${Math.floor(Number(s.basePrice) * 1.30).toLocaleString()}원`;
-      document.getElementById('detailBasePrice').textContent = `${Number(s.basePrice).toLocaleString()}원`;
-      document.getElementById('detailLowerLimit').textContent = `${Math.ceil(Number(s.basePrice) * 0.70).toLocaleString()}원`;
-      document.getElementById('orderUnitPriceDisplay').textContent = `${Number(s.price).toLocaleString()}원`;
+      document.getElementById('detailUpperLimit').textContent = `${fmtCookie(round3(s.basePrice) * 1.30)}쿠키`;
+      document.getElementById('detailBasePrice').textContent = `${fmtCookie(s.basePrice)}쿠키`;
+      document.getElementById('detailLowerLimit').textContent = `${fmtCookie(round3(s.basePrice) * 0.70)}쿠키`;
+      document.getElementById('orderUnitPriceDisplay').textContent = `${fmtCookie(s.price)}쿠키`;
 
       updateChart(s);
     }
@@ -1965,10 +1945,17 @@
         },
         options: {
           responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${fmtCookie(ctx.parsed.y)}쿠키`
+              }
+            }
+          },
           scales: {
             x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#64748b', font: { size: 10 } } },
-            y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: val => val.toLocaleString() + '원' } }
+            y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: val => fmtCookie(val) + '쿠키' } }
           }
         }
       });
@@ -1998,7 +1985,7 @@
       const input = document.getElementById('orderQtyInput');
       const sData = students[currentStudentName] || { cash: 0, holdings: {} };
       if (currentOrderType === 'buy') {
-        const maxBuy = Math.floor(Number(sData.cash) / Number(s.price));
+        const maxBuy = Math.floor(round3(sData.cash) / round3(s.price));
         input.value = Math.max(1, Math.floor(maxBuy * percent));
       } else {
         const holding = (sData.holdings && sData.holdings[s.code]) ? Number(sData.holdings[s.code].qty) : 0;
@@ -2012,15 +1999,15 @@
       const s = stocks.find(x => String(x.code) === String(selectedStockCode));
       if (!s) return;
       const qty = Math.max(1, parseInt(document.getElementById('orderQtyInput').value) || 1);
-      const totalOrderVal = qty * Number(s.price);
-      document.getElementById('orderTotalPriceDisplay').textContent = `${totalOrderVal.toLocaleString()}원`;
+      const totalOrderVal = round3(qty * round3(s.price));
+      document.getElementById('orderTotalPriceDisplay').textContent = `${fmtCookie(totalOrderVal)}쿠키`;
 
       const maxAffordableDisplay = document.getElementById('maxAffordableDisplay');
       const expEl = document.getElementById('expectedRealizedDisplay');
       const sData = students[currentStudentName] || { cash: 0, holdings: {} };
 
       if (currentOrderType === 'buy') {
-        maxAffordableDisplay.textContent = `매수 가능: ${Math.floor(Number(sData.cash) / Number(s.price)).toLocaleString()}주`;
+        maxAffordableDisplay.textContent = `매수 가능: ${Math.floor(round3(sData.cash) / round3(s.price)).toLocaleString()}주`;
         if (expEl) { expEl.textContent = "매도 시 확정됨"; expEl.className = "text-slate-400"; }
       } else {
         const hObj = (sData.holdings && sData.holdings[s.code]) ? sData.holdings[s.code] : null;
@@ -2029,10 +2016,10 @@
         if (expEl) {
           if (holdingQty > 0) {
             const avg = Number(hObj.totalCost) / holdingQty;
-            const estProfit = Math.round((Number(s.price) - avg) * Math.min(qty, holdingQty));
-            const estRate = avg > 0 ? (((Number(s.price) - avg) / avg) * 100).toFixed(2) : "0.00";
+            const estProfit = round3((round3(s.price) - avg) * Math.min(qty, holdingQty));
+            const estRate = avg > 0 ? (((round3(s.price) - avg) / avg) * 100).toFixed(2) : "0.00";
             const sign = estProfit >= 0 ? '+' : '';
-            expEl.textContent = `${sign}${estProfit.toLocaleString()}원 (${sign}${estRate}%)`;
+            expEl.textContent = `${sign}${fmtCookie(estProfit)}쿠키 (${sign}${estRate}%)`;
             expEl.className = estProfit >= 0 ? "price-up font-bold" : "price-down font-bold";
           } else {
             expEl.textContent = "보유 없음";
@@ -2067,7 +2054,7 @@
       document.getElementById('limitNewsItemsContainer').innerHTML = limitList.map(item => `
         <div class="bg-slate-900/90 rounded-2xl p-3.5 border border-slate-800 space-y-1.5 text-xs">
           <div class="flex items-center justify-between">
-            <span class="font-extrabold text-sm text-slate-100">${item.stock.name} (${Number(item.stock.price).toLocaleString()}원)</span>
+            <span class="font-extrabold text-sm text-slate-100">${item.stock.name} (${fmtCookie(item.stock.price)}쿠키)</span>
             <span class="text-[10px] font-black px-2 py-0.5 rounded border ${item.type === 'UP' ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' : 'bg-blue-500/20 text-blue-300 border-blue-500/40'}">${item.type === 'UP' ? '🔥 상한가 (+30%)' : '🧊 하한가 (-30%)'}</span>
           </div>
           <p class="text-xs text-slate-300 bg-slate-950/60 p-2.5 rounded-xl">📰 <strong>[특보]</strong> ${item.news}</p>
@@ -2104,12 +2091,12 @@
 
       document.getElementById('summaryStudentName').textContent = currentStudentName;
       const curStats = getStudentStats(currentStudentName);
-      const prevAsset = prevTurnStudentAssets[currentStudentName] !== undefined ? Number(prevTurnStudentAssets[currentStudentName]) : curStats.totalAsset;
-      const dayDiff = curStats.totalAsset - prevAsset;
+      const prevAsset = prevTurnStudentAssets[currentStudentName] !== undefined ? round3(prevTurnStudentAssets[currentStudentName]) : curStats.totalAsset;
+      const dayDiff = round3(curStats.totalAsset - prevAsset);
       const dayDiffRate = prevAsset === 0 ? 0 : (dayDiff / prevAsset) * 100;
       const sign = dayDiff >= 0 ? '+' : '';
       const returnEl = document.getElementById('summaryStudentDailyReturn');
-      returnEl.textContent = `${sign}${dayDiff.toLocaleString()}원 (${sign}${dayDiffRate.toFixed(2)}%)`;
+      returnEl.textContent = `${sign}${fmtCookie(dayDiff)}쿠키 (${sign}${dayDiffRate.toFixed(2)}%)`;
       returnEl.className = `font-mono font-bold text-sm ${dayDiff >= 0 ? 'text-rose-400' : 'text-blue-400'}`;
 
       modal.classList.remove('hidden');
@@ -2135,7 +2122,7 @@
       if (!snapshot) return;
       const data = JSON.parse(snapshot);
       roomCustomTitle = data.roomCustomTitle || ""; roomTeacherPin = data.roomTeacherPin || "10101";
-      marketDay = data.marketDay; seedMoney = data.seedMoney !== undefined ? Number(data.seedMoney) : 0;
+      marketDay = data.marketDay; seedMoney = data.seedMoney !== undefined ? round3(data.seedMoney) : 0;
       stocks = data.stocks; students = data.students;
       currentStudentName = data.currentStudentName; economyPhase = data.economyPhase || 3;
       prevTurnStudentAssets = data.prevTurnStudentAssets || {}; prevTurnStudentRanks = data.prevTurnStudentRanks || {};
@@ -2160,7 +2147,7 @@
         roomCustomTitle, roomTeacherPin, marketDay, seedMoney, stocks, students, currentStudentName, economyPhase, prevTurnStudentAssets, prevTurnStudentRanks
       }, null, 2));
       const a = document.createElement('a');
-      a.href = dataStr; a.download = `학급모의투자_${labelName}_${marketDay}일차_백업.json`;
+      a.href = dataStr; a.download = `학급쿠키투자_${labelName}_${marketDay}일차_백업.json`;
       document.body.appendChild(a); a.click(); a.remove();
     }
 
@@ -2173,7 +2160,7 @@
           const data = JSON.parse(e.target.result);
           roomCustomTitle = data.roomCustomTitle || ""; roomTeacherPin = data.roomTeacherPin || "10101";
           marketDay = data.marketDay || 1;
-          seedMoney = data.seedMoney !== undefined ? Number(data.seedMoney) : 0;
+          seedMoney = data.seedMoney !== undefined ? round3(data.seedMoney) : 0;
           stocks = data.stocks; students = data.students;
           economyPhase = data.economyPhase || 3;
           prevTurnStudentAssets = data.prevTurnStudentAssets || {};
@@ -2195,12 +2182,12 @@
       document.getElementById('setupRoomTeacherPinInput').value = roomTeacherPin || "10101";
       const studentEntries = Object.entries(students).map(([name, obj]) => `${name}:${obj.pin || '1234'}`);
       document.getElementById('setupStudentsInput').value = studentEntries.join(', ');
-      document.getElementById('setupSeedMoneyInput').value = seedMoney;
+      document.getElementById('setupSeedMoneyInput').value = round3(seedMoney).toFixed(3);
       document.getElementById('setupStockGrid').innerHTML = stocks.map((s, idx) => `
         <div class="p-2 bg-slate-900 rounded-lg border border-slate-800 flex items-center gap-1.5">
           <span class="w-4 text-slate-500 font-mono font-bold text-[11px]">${idx + 1}</span>
           <input type="text" id="setup_stock_name_${idx}" value="${s.name}" class="w-28 bg-slate-950 border border-slate-800 rounded px-1.5 py-1 text-slate-200 font-bold text-xs select-text">
-          <input type="number" id="setup_stock_price_${idx}" value="${s.price}" min="100" step="100" class="w-20 bg-slate-950 border border-slate-800 rounded px-1 py-1 text-right font-mono text-slate-200 text-xs select-text">
+          <input type="number" id="setup_stock_price_${idx}" value="${round3(s.price).toFixed(3)}" min="0.001" step="0.001" class="w-20 bg-slate-950 border border-slate-800 rounded px-1 py-1 text-right font-mono text-slate-200 text-xs select-text">
           <select id="setup_stock_trend_${idx}" class="flex-1 bg-slate-950 border border-slate-800 rounded px-1 py-1 text-xs font-bold outline-none cursor-pointer">
             <option value="none" ${s.trend === 'none' ? 'selected' : ''}>보통(랜덤)</option>
             <option value="up" ${s.trend === 'up' ? 'selected' : ''}>📈 우상향</option>
@@ -2235,9 +2222,9 @@
     function restoreDefaultStockNames() {
       stocks.forEach((s, idx) => {
         if (DEFAULT_STOCKS[idx]) {
-          const randPrice = createRandomStartPrice(15000, 180000);
+          const randPrice = createRandomStartPrice(15, 180);
           document.getElementById(`setup_stock_name_${idx}`).value = DEFAULT_STOCKS[idx].name;
-          document.getElementById(`setup_stock_price_${idx}`).value = randPrice;
+          document.getElementById(`setup_stock_price_${idx}`).value = randPrice.toFixed(3);
           document.getElementById(`setup_stock_trend_${idx}`).value = "none";
         }
       });
@@ -2252,8 +2239,8 @@
 
       roomCustomTitle = document.getElementById('setupRoomCustomTitleInput').value.trim();
       roomTeacherPin = document.getElementById('setupRoomTeacherPinInput').value.trim() || "10101";
-      const parsedSeed = parseInt(document.getElementById('setupSeedMoneyInput').value, 10);
-      seedMoney = isNaN(parsedSeed) ? 0 : parsedSeed;
+      const parsedSeed = parseFloat(document.getElementById('setupSeedMoneyInput').value);
+      seedMoney = isNaN(parsedSeed) ? 0 : round3(parsedSeed);
 
       const newStudents = {};
       rawEntries.forEach(entry => {
@@ -2274,11 +2261,11 @@
 
       stocks.forEach((s, idx) => {
         const nameVal = document.getElementById(`setup_stock_name_${idx}`).value.trim();
-        const priceVal = parseInt(document.getElementById(`setup_stock_price_${idx}`).value, 10) || 1000;
+        const priceVal = round3(parseFloat(document.getElementById(`setup_stock_price_${idx}`).value)) || 1;
         const trendVal = document.getElementById(`setup_stock_trend_${idx}`).value;
         if (nameVal) s.name = nameVal;
         s.trend = trendVal;
-        if (s.price !== priceVal) {
+        if (round3(s.price) !== priceVal) {
           s.price = priceVal;
           s.history[s.history.length - 1] = priceVal;
         }
@@ -2293,7 +2280,7 @@
     }
 
     function resetAllGameData() {
-      if (!confirm(`정말로 모든 학생의 예수금을 0원으로 초기화하고 1일차로 되돌리시겠습니까?`)) return;
+      if (!confirm(`정말로 모든 학생의 쿠키를 0.000쿠키로 초기화하고 1일차로 되돌리시겠습니까?`)) return;
       localStorage.removeItem(getLocalKeyForRoom(currentRoomId));
       localStorage.removeItem(getSnapshotKeyForRoom(currentRoomId));
       setupDefaults();
@@ -2301,7 +2288,7 @@
       renderAll();
       renderStudentLoginGrid();
       closeClassSetupModal();
-      showOrderToast(`🔄 전체 데이터가 1일차(초기 예수금 0원)로 초기화되었습니다.`, "sell");
+      showOrderToast(`🔄 전체 데이터가 1일차(초기 예수금 0.000쿠키)로 초기화되었습니다.`, "sell");
     }
 
     window.addEventListener('load', () => {
