@@ -64,7 +64,7 @@
             <span class="font-black text-sm text-white tracking-tight">ClassPay</span>
             <span id="roomBadgeLabel" class="bg-indigo-950 border border-indigo-500/60 text-sky-300 font-black text-xs px-2 py-0.5 rounded-lg">연수학급</span>
           </div>
-          <span class="text-[10px] text-emerald-400 font-bold block leading-tight" id="headerModeSubText">🟢 매점 직원용 POS</span>
+          <span class="text-[10px] text-emerald-400 font-bold block leading-tight" id="headerModeSubText">🟢 계산전용 QR</span>
         </div>
       </div>
 
@@ -81,15 +81,15 @@
     <!-- ================= 본문 영역 ================= -->
     <main class="flex-1 w-full">
 
-      <!-- [기본 화면] 매점 직원 전용 모바일 계산기 -->
+      <!-- [기본 화면] 계산전용 QR (첫 접속 시 기본 표시) -->
       <div id="staffModeContainer" class="p-3.5 space-y-3.5">
 
         <!-- 스캐너 & 현재 스캔된 손님 표시 박스 -->
         <div class="staff-gradient rounded-3xl p-4 text-white shadow-xl space-y-3">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-1.5">
-              <span class="px-2 py-0.5 rounded-full bg-slate-950/40 text-emerald-200 font-black text-[10px]">매점 POS</span>
-              <span class="font-black text-sm">매점 직원용 QR 계산기</span>
+              <span class="px-2 py-0.5 rounded-full bg-slate-950/40 text-emerald-200 font-black text-[10px]">QR POS</span>
+              <span class="font-black text-sm">계산전용 QR</span>
             </div>
             <span class="text-[10px] text-emerald-100 font-bold">스캔 손님 잔액 확인 · 차감 전용</span>
           </div>
@@ -145,8 +145,8 @@
           </div>
         </div>
 
-        <!-- 매점 금액 터치 패드 & 결제 승인 버튼 -->
-        <div class="bg-slate-900 rounded-3xl p-4 border-2 border-emerald-500/40 shadow-xl space-y-3">
+        <!-- 금액 터치 패드 & 가격표 & 결제 승인 버튼 -->
+        <div class="bg-slate-900 rounded-3xl p-4 border-2 border-emerald-500/40 shadow-xl space-y-3.5">
           <div>
             <div class="flex items-center justify-between text-[11px] text-slate-400 font-bold mb-1">
               <span>결제(차감)할 금액</span>
@@ -165,28 +165,37 @@
             </div>
           </div>
 
-          <div>
-            <div class="grid grid-cols-4 gap-1 text-[11px] font-bold mb-1.5">
-              <button type="button" onclick="setMemo('staffMemoInput', '🍬 매점 간식/과자')" class="py-1.5 rounded-lg bg-slate-800 active:bg-slate-700 text-slate-200">🍬간식</button>
-              <button type="button" onclick="setMemo('staffMemoInput', '🥤 매점 음료수')" class="py-1.5 rounded-lg bg-slate-800 active:bg-slate-700 text-sky-300">🥤음료</button>
-              <button type="button" onclick="setMemo('staffMemoInput', '✏️ 문구/학용품')" class="py-1.5 rounded-lg bg-slate-800 active:bg-slate-700 text-amber-300">✏️문구</button>
-              <button type="button" onclick="setMemo('staffMemoInput', '🎟️ 학급 쿠폰')" class="py-1.5 rounded-lg bg-slate-800 active:bg-slate-700 text-emerald-300">🎟️쿠폰</button>
+          <!-- ★ 계산전용 QR 품목별 가격표 (간식, 쿠폰, 벌금 탭 전환 및 터치 시 금액·품목 자동 합산) ★ -->
+          <div class="space-y-2 pt-1 border-t border-slate-800">
+            <div class="flex items-center justify-between text-[11px] text-slate-400 font-bold">
+              <span>📋 품목별 가격표 (터치하면 금액·품목 자동 합산)</span>
+              <span class="text-[10px] text-emerald-400">중복 터치 가능</span>
             </div>
-            <input type="text" id="staffMemoInput" value="🍬 매점 간식/과자" placeholder="품목명 입력"
+
+            <div class="grid grid-cols-3 gap-1.5 text-xs font-black">
+              <button type="button" id="staffCatBtn_snack" onclick="selectStaffCategory('snack')" class="py-2.5 rounded-xl bg-amber-500 text-slate-950 shadow transition-all">🍬간식 가격표</button>
+              <button type="button" id="staffCatBtn_coupon" onclick="selectStaffCategory('coupon')" class="py-2.5 rounded-xl bg-slate-800 text-emerald-300 border border-slate-700 transition-all">🎟️쿠폰 가격표</button>
+              <button type="button" id="staffCatBtn_penalty" onclick="selectStaffCategory('penalty')" class="py-2.5 rounded-xl bg-slate-800 text-rose-300 border border-slate-700 transition-all">⚠️벌금 가격표</button>
+            </div>
+
+            <!-- 선택한 카테고리의 세부 가격표 버튼들이 렌더링되는 영역 -->
+            <div id="staffPriceMenuGrid" class="grid grid-cols-2 gap-1.5 bg-slate-950/90 p-2.5 rounded-2xl border border-slate-800 max-h-44 overflow-y-auto"></div>
+
+            <input type="text" id="staffMemoInput" value="🍬 간식" placeholder="품목명 입력 (위 가격표 터치 시 자동 입력)"
               class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 font-bold outline-none select-text">
           </div>
 
           <button type="button" onclick="executeStaffChargeOnly()"
             class="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-600 to-amber-600 active:scale-95 text-white font-black text-base shadow-xl flex items-center justify-center gap-2 transition-all">
             <i class="fa-solid fa-check-to-slot"></i>
-            <span>매점 결제 승인 (차감 실행)</span>
+            <span>결제 승인 (차감 실행)</span>
           </button>
         </div>
 
-        <!-- 매점 영수증 로그 -->
+        <!-- 최근 결제 영수증 로그 -->
         <div class="bg-slate-900 rounded-3xl p-4 border border-slate-800 space-y-2">
           <div class="flex items-center justify-between">
-            <h3 class="text-xs font-black text-slate-300"><i class="fa-solid fa-receipt text-emerald-400 mr-1"></i>매점 최근 결제 영수증</h3>
+            <h3 class="text-xs font-black text-slate-300"><i class="fa-solid fa-receipt text-emerald-400 mr-1"></i>최근 결제 영수증</h3>
             <span class="text-[10px] text-slate-500">최근 15건</span>
           </div>
           <div id="staffReceiptLogList" class="space-y-1.5 max-h-36 overflow-y-auto divide-y divide-slate-800/60 text-xs"></div>
@@ -203,7 +212,7 @@
               <i class="fa-solid fa-chalkboard-user"></i>교사 관리자 모드 활성화됨
             </span>
             <button onclick="switchViewMode('staff')" class="px-2.5 py-1 rounded-lg bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold">
-              🏪 매점 계산기 보기
+              🟢 계산전용 QR 보기
             </button>
           </div>
 
@@ -255,7 +264,7 @@
           </div>
         </div>
 
-        <!-- 교사 전용 증액(상점) / 차감(벌금·매점) 터치 패드 -->
+        <!-- 교사 전용 증액(급여) / 차감(벌금) 터치 패드 -->
         <div class="bg-slate-900 rounded-3xl p-4 border border-amber-500/40 shadow-xl space-y-3">
           <div class="flex items-center justify-between border-b border-slate-800 pb-2">
             <div class="flex items-center gap-1.5">
@@ -283,14 +292,13 @@
             </div>
           </div>
 
+          <!-- 교사 메뉴 사유 선택 (급여, 벌금 2가지) -->
           <div>
-            <div class="grid grid-cols-4 gap-1 text-[11px] font-bold mb-1.5">
-              <button type="button" onclick="setMemo('posMemoInput', '🎁 교사 상점 보상')" class="py-1.5 rounded-lg bg-slate-800 active:bg-slate-700 text-emerald-300">🎁상점</button>
-              <button type="button" onclick="setMemo('posMemoInput', '💰 학급 주급 지급')" class="py-1.5 rounded-lg bg-slate-800 active:bg-slate-700 text-sky-300">💰주급</button>
-              <button type="button" onclick="setMemo('posMemoInput', '⚠️ 학급 벌금 납부')" class="py-1.5 rounded-lg bg-slate-800 active:bg-slate-700 text-rose-300">⚠️벌금</button>
-              <button type="button" onclick="setMemo('posMemoInput', '🛒 학급 매점 구매')" class="py-1.5 rounded-lg bg-slate-800 active:bg-slate-700 text-amber-300">🛒매점</button>
+            <div class="grid grid-cols-2 gap-1.5 text-xs font-bold mb-1.5">
+              <button type="button" onclick="setMemo('posMemoInput', '💰 급여 지급')" class="py-2 rounded-xl bg-slate-800 active:bg-slate-700 text-emerald-300 border border-slate-700">💰급여</button>
+              <button type="button" onclick="setMemo('posMemoInput', '⚠️ 벌금 납부')" class="py-2 rounded-xl bg-slate-800 active:bg-slate-700 text-rose-300 border border-slate-700">⚠️벌금</button>
             </div>
-            <input type="text" id="posMemoInput" value="🎁 교사 상점 보상" placeholder="사유 입력"
+            <input type="text" id="posMemoInput" value="💰 급여 지급" placeholder="사유 입력"
               class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 font-bold outline-none select-text">
           </div>
 
@@ -298,14 +306,51 @@
             <button type="button" onclick="executeTeacherAdjust('deposit')"
               class="py-4 px-2 rounded-2xl bg-emerald-600 active:scale-95 text-white font-black text-sm shadow-lg flex flex-col items-center justify-center gap-0.5 transition-all">
               <span class="flex items-center gap-1"><i class="fa-solid fa-circle-plus"></i>교사 증액 (입금)</span>
-              <span class="text-[10px] font-normal text-emerald-100">상점 · 급여 지급</span>
+              <span class="text-[10px] font-normal text-emerald-100">급여 지급</span>
             </button>
             <button type="button" onclick="executeTeacherAdjust('withdraw')"
               class="py-4 px-2 rounded-2xl bg-rose-600 active:scale-95 text-white font-black text-sm shadow-lg flex flex-col items-center justify-center gap-0.5 transition-all">
               <span class="flex items-center gap-1"><i class="fa-solid fa-circle-minus"></i>예수금 차감 (출금)</span>
-              <span class="text-[10px] font-normal text-rose-100">매점 결제 · 벌금</span>
+              <span class="text-[10px] font-normal text-rose-100">벌금 차감</span>
             </button>
           </div>
+        </div>
+
+        <!-- ★ [신규 추가] 관리자 전용: 간식 · 쿠폰 · 벌금 가격표 편집 패널 ★ -->
+        <div class="bg-slate-900 rounded-3xl p-4 border border-indigo-500/40 shadow-xl space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+            <div class="flex items-center gap-1.5">
+              <i class="fa-solid fa-tags text-indigo-400 text-sm"></i>
+              <h2 class="text-xs font-black text-white">계산전용 QR 가격표 설정 (간식·쿠폰·벌금)</h2>
+            </div>
+            <button type="button" onclick="resetPriceCatalogToDefault()" class="text-[10px] text-rose-400 font-bold underline">기본값 복원</button>
+          </div>
+
+          <!-- 편집할 카테고리 선택 탭 -->
+          <div class="grid grid-cols-3 gap-1.5 text-xs font-black">
+            <button type="button" id="adminCatBtn_snack" onclick="selectAdminEditCategory('snack')" class="py-2 rounded-xl bg-amber-500 text-slate-950 shadow transition-all">🍬간식 편집</button>
+            <button type="button" id="adminCatBtn_coupon" onclick="selectAdminEditCategory('coupon')" class="py-2 rounded-xl bg-slate-800 text-emerald-300 border border-slate-700 transition-all">🎟️쿠폰 편집</button>
+            <button type="button" id="adminCatBtn_penalty" onclick="selectAdminEditCategory('penalty')" class="py-2 rounded-xl bg-slate-800 text-rose-300 border border-slate-700 transition-all">⚠️벌금 편집</button>
+          </div>
+
+          <!-- 현재 카테고리의 품목 리스트 (수정/삭제 가능) -->
+          <div id="adminCatalogList" class="space-y-1.5 max-h-56 overflow-y-auto pr-1"></div>
+
+          <!-- 새 품목 추가 입력 줄 -->
+          <div class="flex items-center gap-1.5 pt-2 border-t border-slate-800">
+            <input type="text" id="newItemNameInput" placeholder="새 항목 이름 (예: 사탕)"
+              class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-white font-bold outline-none select-text">
+            <input type="number" id="newItemPriceInput" inputmode="numeric" placeholder="가격(원)"
+              class="w-24 bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-right font-mono text-xs text-amber-300 font-bold outline-none select-text">
+            <button type="button" onclick="addAdminCatalogItem()" class="px-3 py-2 rounded-xl bg-indigo-600 active:bg-indigo-500 text-white text-xs font-black shrink-0 shadow">
+              + 추가
+            </button>
+          </div>
+
+          <button type="button" onclick="saveAdminCatalogChanges()" class="w-full py-3 rounded-2xl bg-indigo-500 active:bg-indigo-400 text-white font-black text-xs shadow-lg flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <span>가격표 변경사항 클라우드 전체 저장</span>
+          </button>
         </div>
 
         <!-- 해당 학생의 최근 입출금 내역 -->
@@ -385,6 +430,34 @@
       "케빈", "스티브", "조나단", "올리버", "다니엘"
     ];
 
+    // ★ 기본 품목별 가격표 (간식 / 쿠폰 / 벌금) ★
+    const DEFAULT_PRICE_CATALOG = {
+      snack: [
+        { name: "마이쮸", price: 1000 },
+        { name: "초코파이", price: 2000 },
+        { name: "젤리", price: 1500 },
+        { name: "음료수", price: 3000 }
+      ],
+      coupon: [
+        { name: "자리바꾸기", price: 5000 },
+        { name: "숙제면제쿠폰", price: 10000 },
+        { name: "급식우선권", price: 5000 },
+        { name: "자유체육", price: 100000 }
+      ],
+      penalty: [
+        { name: "지각", price: 5000 },
+        { name: "싸움", price: 10000 },
+        { name: "욕설/비속어", price: 5000 },
+        { name: "과제미제출", price: 3000 }
+      ]
+    };
+
+    const CATEGORY_META = {
+      snack: { icon: "🍬", title: "간식", activeClass: "py-2.5 rounded-xl bg-amber-500 text-slate-950 shadow transition-all", inactiveClass: "py-2.5 rounded-xl bg-slate-800 text-amber-300 border border-slate-700 transition-all" },
+      coupon: { icon: "🎟️", title: "쿠폰", activeClass: "py-2.5 rounded-xl bg-emerald-500 text-slate-950 shadow transition-all", inactiveClass: "py-2.5 rounded-xl bg-slate-800 text-emerald-300 border border-slate-700 transition-all" },
+      penalty: { icon: "⚠️", title: "벌금", activeClass: "py-2.5 rounded-xl bg-rose-500 text-white shadow transition-all", inactiveClass: "py-2.5 rounded-xl bg-slate-800 text-rose-300 border border-slate-700 transition-all" }
+    };
+
     let currentRoomId = "class_1";
     let roomCustomTitle = "";
     let roomTeacherPin = "10101";
@@ -392,6 +465,11 @@
     let stocks = [];
     let students = {};
     let payLogs = [];
+
+    let priceCatalog = JSON.parse(JSON.stringify(DEFAULT_PRICE_CATALOG));
+    let currentStaffCategory = 'snack';
+    let currentAdminEditCategory = 'snack';
+    let selectedBasketItems = [];
 
     let currentStudentName = "";
     let staffScannedStudent = "";
@@ -448,6 +526,22 @@
       subscribeRoom(currentRoomId);
     }
 
+    function normalizeCatalog(rawCatalog) {
+      const result = { snack: [], coupon: [], penalty: [] };
+      ['snack', 'coupon', 'penalty'].forEach(cat => {
+        if (rawCatalog && rawCatalog[cat]) {
+          const arr = Array.isArray(rawCatalog[cat]) ? rawCatalog[cat] : Object.values(rawCatalog[cat]);
+          result[cat] = arr.filter(x => x && x.name).map(x => ({
+            name: String(x.name).trim(),
+            price: Number(x.price) || 0
+          }));
+        } else {
+          result[cat] = JSON.parse(JSON.stringify(DEFAULT_PRICE_CATALOG[cat]));
+        }
+      });
+      return result;
+    }
+
     function subscribeRoom(roomId) {
       if (roomRef) roomRef.off();
       const path = getFirebasePathForRoom(roomId);
@@ -456,12 +550,14 @@
       roomRef.on('value', (snap) => {
         const data = snap.val();
         if (!data || !data.students) {
-          // 아직 DB가 비어 있을 경우 25명 기본 명단(예수금 0원) 세팅
           students = {};
           DEFAULT_STUDENTS.forEach(n => {
             students[n] = { cash: 0, netDeposit: 0, realizedProfit: 0, realizedCost: 0, pin: "1234", holdings: {} };
           });
           currentStudentName = DEFAULT_STUDENTS[0];
+          priceCatalog = JSON.parse(JSON.stringify(DEFAULT_PRICE_CATALOG));
+          renderStaffPriceMenu();
+          renderAdminCatalogEditor();
           renderTeacherWalletUI();
           renderStaffReceiptLogs();
           return;
@@ -473,6 +569,12 @@
         stocks = Array.isArray(data.stocks) ? data.stocks : Object.values(data.stocks || {});
         students = data.students || {};
         payLogs = data.payLogs ? Object.values(data.payLogs).sort((a, b) => b.time - a.time) : [];
+
+        if (data.priceCatalog) {
+          priceCatalog = normalizeCatalog(data.priceCatalog);
+        } else {
+          priceCatalog = JSON.parse(JSON.stringify(DEFAULT_PRICE_CATALOG));
+        }
 
         const badgeEl = document.getElementById('roomBadgeLabel');
         if (badgeEl) badgeEl.textContent = getDisplayRoomName();
@@ -495,9 +597,171 @@
         updateStaffBalancePreview();
 
         updateAdminHeaderUI();
+        renderStaffPriceMenu();
+        renderAdminCatalogEditor();
         renderTeacherWalletUI();
         renderStaffReceiptLogs();
       });
+    }
+
+    /* =========================================================================
+       ★ [신규 기능] 점원용 가격표 표시 & 터치 시 자동 합산 + 관리자 가격표 편집 ★
+       ========================================================================= */
+    function selectStaffCategory(cat) {
+      currentStaffCategory = cat;
+      ['snack', 'coupon', 'penalty'].forEach(k => {
+        const btn = document.getElementById(`staffCatBtn_${k}`);
+        if (!btn) return;
+        btn.className = (k === cat) ? CATEGORY_META[k].activeClass : CATEGORY_META[k].inactiveClass;
+      });
+      if (selectedBasketItems.length === 0) {
+        document.getElementById('staffMemoInput').value = `${CATEGORY_META[cat].icon} ${CATEGORY_META[cat].title}`;
+      }
+      renderStaffPriceMenu();
+    }
+
+    function renderStaffPriceMenu() {
+      const grid = document.getElementById('staffPriceMenuGrid');
+      if (!grid) return;
+      const items = priceCatalog[currentStaffCategory] || [];
+      const meta = CATEGORY_META[currentStaffCategory];
+
+      if (items.length === 0) {
+        grid.innerHTML = `<div class="col-span-2 text-center py-4 text-xs text-slate-500">등록된 ${meta.title} 가격표가 없습니다.<br>(관리자 모드에서 추가 가능)</div>`;
+        return;
+      }
+
+      grid.innerHTML = items.map((item, idx) => `
+        <button type="button" onclick="onTapPriceMenuItem('${currentStaffCategory}', ${idx})"
+          class="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 border border-slate-700/80 flex items-center justify-between text-left transition-all shadow">
+          <div class="truncate pr-1">
+            <span class="text-xs font-black text-slate-100 block truncate">${meta.icon} ${item.name}</span>
+          </div>
+          <span class="font-mono text-xs font-black text-amber-300 shrink-0">${Number(item.price).toLocaleString()}원</span>
+        </button>
+      `).join('');
+    }
+
+    function onTapPriceMenuItem(cat, idx) {
+      const list = priceCatalog[cat] || [];
+      const item = list[idx];
+      if (!item) return;
+
+      const meta = CATEGORY_META[cat];
+      const inp = document.getElementById('staffAmountInput');
+      const curAmt = parseInt(inp.value, 10) || 0;
+      inp.value = curAmt + (Number(item.price) || 0);
+
+      selectedBasketItems.push(`${meta.icon}${item.name}`);
+      const counts = {};
+      selectedBasketItems.forEach(x => { counts[x] = (counts[x] || 0) + 1; });
+      const summaryText = Object.entries(counts).map(([k, c]) => c > 1 ? `${k}x${c}` : k).join(', ');
+      document.getElementById('staffMemoInput').value = summaryText;
+
+      updateStaffBalancePreview();
+    }
+
+    function selectAdminEditCategory(cat) {
+      currentAdminEditCategory = cat;
+      const styles = {
+        snack: { active: "py-2 rounded-xl bg-amber-500 text-slate-950 shadow transition-all", inactive: "py-2 rounded-xl bg-slate-800 text-amber-300 border border-slate-700 transition-all" },
+        coupon: { active: "py-2 rounded-xl bg-emerald-500 text-slate-950 shadow transition-all", inactive: "py-2 rounded-xl bg-slate-800 text-emerald-300 border border-slate-700 transition-all" },
+        penalty: { active: "py-2 rounded-xl bg-rose-500 text-white shadow transition-all", inactive: "py-2 rounded-xl bg-slate-800 text-rose-300 border border-slate-700 transition-all" }
+      };
+      ['snack', 'coupon', 'penalty'].forEach(k => {
+        const btn = document.getElementById(`adminCatBtn_${k}`);
+        if (btn) btn.className = (k === cat) ? styles[k].active : styles[k].inactive;
+      });
+      renderAdminCatalogEditor();
+    }
+
+    function renderAdminCatalogEditor() {
+      const container = document.getElementById('adminCatalogList');
+      if (!container) return;
+      const items = priceCatalog[currentAdminEditCategory] || [];
+      const meta = CATEGORY_META[currentAdminEditCategory];
+
+      if (items.length === 0) {
+        container.innerHTML = `<div class="text-center py-3 text-xs text-slate-500">항목이 없습니다. 아래에서 새 항목을 추가하세요.</div>`;
+        return;
+      }
+
+      container.innerHTML = items.map((item, idx) => `
+        <div class="flex items-center gap-1.5 bg-slate-950 p-2 rounded-xl border border-slate-800">
+          <span class="text-xs">${meta.icon}</span>
+          <input type="text" value="${item.name}" onchange="updateAdminItemField('${currentAdminEditCategory}', ${idx}, 'name', this.value)"
+            class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-100 font-bold outline-none select-text">
+          <input type="number" inputmode="numeric" value="${item.price}" onchange="updateAdminItemField('${currentAdminEditCategory}', ${idx}, 'price', this.value)"
+            class="w-24 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-right font-mono text-xs text-amber-300 font-bold outline-none select-text">
+          <span class="text-[11px] text-slate-400">원</span>
+          <button type="button" onclick="removeAdminCatalogItem('${currentAdminEditCategory}', ${idx})"
+            class="px-2 py-1 rounded-lg bg-rose-500/20 text-rose-300 text-xs font-black">✕</button>
+        </div>
+      `).join('');
+    }
+
+    function updateAdminItemField(cat, idx, field, val) {
+      if (!priceCatalog[cat] || !priceCatalog[cat][idx]) return;
+      if (field === 'name') {
+        priceCatalog[cat][idx].name = String(val).trim();
+      } else if (field === 'price') {
+        priceCatalog[cat][idx].price = Math.max(0, parseInt(val, 10) || 0);
+      }
+      renderStaffPriceMenu();
+    }
+
+    function addAdminCatalogItem() {
+      const nameInp = document.getElementById('newItemNameInput');
+      const priceInp = document.getElementById('newItemPriceInput');
+      const name = nameInp.value.trim();
+      const price = parseInt(priceInp.value, 10) || 0;
+
+      if (!name) {
+        showToast("⚠️ 추가할 항목의 이름을 입력해주세요!", "error");
+        return;
+      }
+      if (price <= 0) {
+        showToast("⚠️ 가격을 1원 이상 입력해주세요!", "error");
+        return;
+      }
+
+      if (!priceCatalog[currentAdminEditCategory]) priceCatalog[currentAdminEditCategory] = [];
+      priceCatalog[currentAdminEditCategory].push({ name, price });
+
+      nameInp.value = "";
+      priceInp.value = "";
+      renderAdminCatalogEditor();
+      renderStaffPriceMenu();
+      saveAdminCatalogChanges();
+    }
+
+    function removeAdminCatalogItem(cat, idx) {
+      if (!priceCatalog[cat]) return;
+      priceCatalog[cat].splice(idx, 1);
+      renderAdminCatalogEditor();
+      renderStaffPriceMenu();
+      saveAdminCatalogChanges();
+    }
+
+    function saveAdminCatalogChanges() {
+      if (!isTeacherAuthenticated()) {
+        openAdminAuthModal();
+        return;
+      }
+      const path = getFirebasePathForRoom(currentRoomId);
+      firebaseDb.ref(`${path}/priceCatalog`).set(priceCatalog).then(() => {
+        showToast("✅ 가격표 설정이 클라우드에 저장되었습니다!");
+      }).catch(() => {
+        showToast("⚠️ 가격표 저장 실패! Firebase 권한을 확인하세요.", "error");
+      });
+    }
+
+    function resetPriceCatalogToDefault() {
+      if (!confirm("간식·쿠폰·벌금 가격표를 기본 예시 상태로 복원하시겠습니까?")) return;
+      priceCatalog = JSON.parse(JSON.stringify(DEFAULT_PRICE_CATALOG));
+      renderAdminCatalogEditor();
+      renderStaffPriceMenu();
+      saveAdminCatalogChanges();
     }
 
     function getCompactQrPayload(roomId, studentName) {
@@ -622,7 +886,7 @@
           localStorage.removeItem(STORAGE_KEY_TEACHER_AUTH);
           switchViewMode('staff');
           updateAdminHeaderUI();
-          showToast("🔒 관리자 모드가 종료되었습니다. (매점 직원 화면)");
+          showToast("🔒 관리자 모드가 종료되었습니다. (계산전용 QR 화면)");
         }
       } else {
         openAdminAuthModal();
@@ -675,13 +939,15 @@
         subText.className = "text-[10px] text-amber-400 font-black block leading-tight";
         logoBox.className = "w-8 h-8 rounded-xl wallet-gradient flex items-center justify-center text-white font-black text-sm shadow";
         renderTeacherWalletUI();
+        renderAdminCatalogEditor();
       } else {
         currentViewMode = 'staff';
         teacherBox.classList.add('hidden');
         staffBox.classList.remove('hidden');
-        subText.textContent = "🟢 매점 직원용 POS";
+        subText.textContent = "🟢 계산전용 QR";
         subText.className = "text-[10px] text-emerald-400 font-bold block leading-tight";
         logoBox.className = "w-8 h-8 rounded-xl staff-gradient flex items-center justify-center text-white font-black text-sm shadow";
+        renderStaffPriceMenu();
         renderStaffReceiptLogs();
       }
       updateAdminHeaderUI();
@@ -771,6 +1037,9 @@
 
     function clearStaffAmount() {
       document.getElementById('staffAmountInput').value = '';
+      selectedBasketItems = [];
+      const meta = CATEGORY_META[currentStaffCategory];
+      document.getElementById('staffMemoInput').value = `${meta.icon} ${meta.title}`;
       updateStaffBalancePreview();
     }
 
@@ -799,7 +1068,7 @@
         return;
       }
 
-      const memo = document.getElementById('posMemoInput').value.trim() || (mode === 'deposit' ? '교사 증액' : '교사 차감');
+      const memo = document.getElementById('posMemoInput').value.trim() || (mode === 'deposit' ? '💰 급여 지급' : '⚠️ 벌금 납부');
       const newCash = Number(st.cash) + delta;
       const newNetDep = (Number(st.netDeposit) || 0) + delta;
 
@@ -928,7 +1197,7 @@
 
       const amount = parseInt(document.getElementById('staffAmountInput').value, 10) || 0;
       if (amount <= 0) {
-        showToast("⚠️ 결제할 금액 버튼을 눌러주세요!", "error");
+        showToast("⚠️ 결제할 금액이나 가격표 버튼을 눌러주세요!", "error");
         return;
       }
 
@@ -940,7 +1209,7 @@
         return;
       }
 
-      const memo = document.getElementById('staffMemoInput').value.trim() || "🛒 학급 매점 결제";
+      const memo = document.getElementById('staffMemoInput').value.trim() || "🍬 간식";
       const newCash = currentCash - amount;
       const newNetDep = (Number(st.netDeposit) || 0) - amount;
 
@@ -956,15 +1225,15 @@
         amount: amount,
         balanceAfter: newCash,
         memo: memo,
-        actor: "매점직원",
+        actor: "계산전용QR",
         time: Date.now()
       });
 
       const paidCustomer = staffScannedStudent;
-      document.getElementById('staffAmountInput').value = "";
+      clearStaffAmount();
       clearStaffScannedCustomer();
 
-      showToast(`🛒 [${paidCustomer}] ${amount.toLocaleString()}원 결제 완료! (남은 잔액: ${newCash.toLocaleString()}원)`);
+      showToast(`✅ [${paidCustomer}] ${amount.toLocaleString()}원 결제 완료! (남은 잔액: ${newCash.toLocaleString()}원)`);
     }
 
     function renderStaffReceiptLogs() {
@@ -973,7 +1242,7 @@
       const staffLogs = payLogs.filter(l => l.type === 'withdraw').slice(0, 15);
 
       if (staffLogs.length === 0) {
-        container.innerHTML = `<div class="text-center py-3 text-slate-500">아직 매점 결제 내역이 없습니다.</div>`;
+        container.innerHTML = `<div class="text-center py-3 text-slate-500">아직 결제 내역이 없습니다.</div>`;
         return;
       }
 
@@ -985,7 +1254,7 @@
         return `
           <div class="py-1.5 flex items-center justify-between">
             <div>
-              <span class="font-bold text-slate-200">[${who}] ${l.memo || '매점 결제'}</span>
+              <span class="font-bold text-slate-200">[${who}] ${l.memo || 'QR 결제'}</span>
               <span class="text-[10px] text-slate-400 block">${timeStr}${remainTxt}</span>
             </div>
             <span class="font-mono font-black text-rose-400">-${Number(l.amount).toLocaleString()}원</span>
@@ -1117,6 +1386,8 @@
 
     window.addEventListener('load', () => {
       parseUrlParams();
+      renderStaffPriceMenu();
+      renderAdminCatalogEditor();
       connectFirebase();
     });
   </script>
