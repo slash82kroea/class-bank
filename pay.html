@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#090d16">
+  <title>ClassPay 모바일 (연수용 단일학급 에디션)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800;900&display=swap');
+    * {
+      font-family: 'Pretendard', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    html, body {
+      height: 100%;
+      overflow-x: hidden;
+      background-color: #090d16;
+    }
+    .wallet-gradient { background: linear-gradient(135deg, #0284c7 0%, #2563eb 60%, #1e40af 100%); }
+    .staff-gradient { background: linear-gradient(135deg, #059669 0%, #0d9488 100%); }
+    #qrReader video, #staffQrReader video {
+      border-radius: 1rem !important;
+      object-fit: cover !important;
+      width: 100% !important;
+      height: 220px !important;
+    }
+    @media print {
+      body * { visibility: hidden; }
+      #printArea, #printArea * { visibility: visible; }
+      #printArea { position: absolute; left: 0; top: 0; width: 100%; background: white !important; color: black !important; padding: 10px; }
+    }
+  </style>
+</head>
+<body class="text-slate-100 flex flex-col items-center">
+
+  <!-- 상단 앱 알림 토스트 -->
+  <div id="toastBanner" class="fixed top-3 left-3 right-3 max-w-md mx-auto z-50 hidden items-center justify-center gap-2 px-4 py-3.5 rounded-2xl shadow-2xl border text-xs font-black transition-all">
+    <i id="toastIcon" class="fa-solid fa-circle-check text-base"></i>
+    <span id="toastText">처리 완료</span>
+  </div>
+
+  <!-- 스마트폰 풀스크린 래퍼 -->
+  <div class="w-full max-w-md min-h-screen bg-slate-950 flex flex-col justify-between relative pb-8 shadow-2xl">
+
+    <!-- ================= 상단 고정 모바일 헤더 (단일 학급 표시) ================= -->
+    <header class="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-3.5 py-2.5 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-xl staff-gradient flex items-center justify-center text-white font-black text-sm shadow" id="headerLogoBox">
+          <i class="fa-solid fa-qrcode"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5">
+            <span class="font-black text-sm text-white tracking-tight">ClassPay</span>
+            <span id="roomBadgeLabel" class="bg-indigo-950 border border-indigo-500/60 text-sky-300 font-black text-xs px-2 py-0.5 rounded-lg">연수학급</span>
+          </div>
+          <span class="text-[10px] text-emerald-400 font-bold block leading-tight" id="headerModeSubText">🟢 매점 직원용 POS</span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-1.5">
+        <a id="backToStockLink" href="index.html" class="px-2.5 py-1.5 rounded-xl bg-slate-800 active:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold flex items-center gap-1">
+          <i class="fa-solid fa-chart-line text-indigo-400"></i><span>주식장</span>
+        </a>
+        <button id="adminToggleBtn" onclick="onAdminBtnClick()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 active:bg-slate-700 text-amber-300 border border-amber-500/40 text-xs font-black flex items-center gap-1">
+          <i class="fa-solid fa-lock" id="adminLockIcon"></i><span id="adminBtnLabel">관리자</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ================= 본문 영역 ================= -->
+    <main class="flex-1 w-full">
+
+      <!-- [기본 화면] 매점 직원 전용 모바일 계산기 -->
+      <div id="staffModeContainer" class="p-3.5 space-y-3.5">
+
+        <!-- 스캐너 & 현재 스캔된 손님 표시 박스 -->
+        <div class="staff-gradient rounded-3xl p-4 text-white shadow-xl space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <span class="px-2 py-0.5 rounded-full bg-slate-950/40 text-emerald-200 font-black text-[10px]">매점 POS</span>
+              <span class="font-black text-sm">매점 직원용 QR 계산기</span>
+            </div>
+            <span class="text-[10px] text-emerald-100 font-bold">스캔 손님 잔액 확인 · 차감 전용</span>
+          </div>
+
+          <!-- 카메라 뷰포트 -->
+          <div class="bg-slate-950/85 rounded-2xl p-2.5 border border-white/15 text-center space-y-2">
+            <div id="staffQrReader" class="w-full overflow-hidden rounded-xl bg-black h-[220px] flex flex-col items-center justify-center text-xs text-slate-400 px-4">
+              <i class="fa-solid fa-qrcode text-2xl text-emerald-400 mb-1.5"></i>
+              <span>아래 [카메라 켜고 QR 찍기]를 누르고<br>손님 QR 카드를 비춰주세요</span>
+            </div>
+
+            <div class="grid grid-cols-3 gap-1.5">
+              <button type="button" onclick="startStaffScanner()" class="col-span-2 py-3 bg-emerald-400 active:bg-emerald-300 text-slate-950 font-black rounded-xl text-xs shadow flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-camera text-sm"></i><span>카메라 켜고 QR 찍기</span>
+              </button>
+              <button type="button" onclick="switchCameraLens('staff')" class="py-3 bg-slate-800 active:bg-slate-700 text-amber-300 font-bold rounded-xl text-[11px] flex items-center justify-center gap-1" title="초점이 안 맞을 때 렌즈 변경">
+                <i class="fa-solid fa-rotate"></i><span>렌즈전환</span>
+              </button>
+            </div>
+
+            <div class="pt-1 flex items-center justify-between gap-2">
+              <button type="button" onclick="document.getElementById('nativeCameraFileInput').click()" class="flex-1 py-2 rounded-xl bg-slate-900 border border-slate-700 text-sky-300 text-[11px] font-bold flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-bolt"></i><span>초점 안 맞을 때: 기본카메라로 찍어 인식</span>
+              </button>
+              <input type="file" id="nativeCameraFileInput" accept="image/*" capture="environment" class="hidden" onchange="scanFromPhotoFile(event)">
+              <button type="button" onclick="stopStaffScanner()" class="px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 text-[11px] font-bold">
+                끄기
+              </button>
+            </div>
+          </div>
+
+          <!-- 스캔된 손님 이름 및 실시간 계좌 잔액 표시 -->
+          <div class="bg-slate-950/60 rounded-2xl p-3.5 border border-white/20 space-y-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <span class="text-[10px] text-emerald-200 font-bold block">결제할 손님</span>
+                <div id="staffScannedCustomerName" class="text-lg font-black text-white mt-0.5">손님 QR을 스캔해주세요</div>
+              </div>
+              <button type="button" onclick="clearStaffScannedCustomer()" class="px-2.5 py-1.5 rounded-xl bg-white/15 active:bg-white/25 text-xs font-bold">
+                초기화
+              </button>
+            </div>
+
+            <div class="pt-2 border-t border-white/15 flex items-baseline justify-between">
+              <span class="text-xs text-emerald-100 font-bold">현재 예수금 잔액:</span>
+              <span id="staffScannedCustomerBalance" class="text-2xl font-black font-mono text-amber-300">- 원</span>
+            </div>
+
+            <div id="staffExpectedRemainRow" class="hidden items-center justify-between text-xs font-mono pt-1">
+              <span class="text-slate-300">결제 후 예상 잔액:</span>
+              <span id="staffExpectedRemainBalance" class="font-bold text-emerald-300">0원</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 매점 금액 터치 패드 & 결제 승인 버튼 -->
+        <div class="bg-slate-900 rounded-3xl p-4 border-2 border-emerald-500/40 shadow-xl space-y-3">
+          <div>
+            <div class="flex items-center justify-between text-[11px] text-slate-400 font-bold mb-1">
+              <span>결제(차감)할 금액</span>
+              <button type="button" onclick="clearStaffAmount()" class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[10px] font-black">초기화 0원</button>
+            </div>
+            <input type="number" id="staffAmountInput" inputmode="numeric" placeholder="0" oninput="updateStaffBalancePreview()"
+              class="w-full bg-slate-950 border-2 border-slate-700 focus:border-emerald-400 rounded-2xl px-3.5 py-2.5 text-right font-mono text-2xl font-black text-white outline-none select-text">
+
+            <div class="grid grid-cols-3 gap-1.5 mt-2 font-mono text-xs font-black">
+              <button type="button" onclick="addPosAmount('staffAmountInput', 1000)" class="py-2.5 bg-slate-800 active:bg-slate-700 rounded-xl text-slate-200 border border-slate-700">+1,000</button>
+              <button type="button" onclick="addPosAmount('staffAmountInput', 5000)" class="py-2.5 bg-slate-800 active:bg-slate-700 rounded-xl text-slate-200 border border-slate-700">+5,000</button>
+              <button type="button" onclick="addPosAmount('staffAmountInput', 10000)" class="py-2.5 bg-slate-800 active:bg-slate-700 rounded-xl text-sky-300 border border-slate-700">+1만</button>
+              <button type="button" onclick="addPosAmount('staffAmountInput', 50000)" class="py-2.5 bg-slate-800 active:bg-slate-700 rounded-xl text-amber-300 border border-slate-700">+5만</button>
+              <button type="button" onclick="addPosAmount('staffAmountInput', 100000)" class="py-2.5 bg-slate-800 active:bg-slate-700 rounded-xl text-emerald-300 border border-slate-700">+10만</button>
+              <button type="button" onclick="addPosAmount('staffAmountInput', 500000)" class="py-2.5 bg-slate-800 active:bg-slate-700 rounded-xl text-rose-300 border border-slate-700">+50만</button>
+            </div>
+          </div>
+
+          <div>
+            <div class="grid grid-cols-4 gap-1 text-[11px] font-bold mb-1.5">
+              <button type="button" onclick="setMemo('staffMemoInput', '🍬 매점 간식/과자')" class="py-1.5 rounded-lg bg-slate-800 active:bg-slate-700 text-slate-200">🍬간식</button>
+              <button type="button" onclick="setMemo('staffMemoInput', '🥤 매점 음료수')" class="py-1.5 rounded-lg bg-slate-800 active:bg-slate-700 text-sky-300">🥤음료</button>
+              <button type="button" onclick="setMemo('staffMemoInput', '✏️ 문구/학용품')" class="py-1.5 rounded-lg bg-slate-800 active:bg-slate-700 text-amber-300">✏️문구</button>
+              <button type="button" onclick="setMemo('staffMemoInput', '🎟️ 학급 쿠폰')" class="py-1.5 rounded-lg bg-slate-800 active:bg-slate-700 text-emerald-300">🎟️쿠폰</button>
+            </div>
+            <input type="text" id="staffMemoInput" value="🍬 매점 간식/과자" placeholder="품목명 입력"
+              class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 font-bold outline-none select-text">
+          </div>
+
+          <button type="button" onclick="executeStaffChargeOnly()"
+            class="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-600 to-amber-600 active:scale-95 text-white font-black text-base shadow-xl flex items-center justify-center gap-2 transition-all">
+            <i class="fa-solid fa-check-to-slot"></i>
+            <span>매점 결제 승인 (차감 실행)</span>
+          </button>
+        </div>
+
+        <!-- 매점 영수증 로그 -->
+        <div class="bg-slate-900 rounded-3xl p-4 border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-black text-slate-300"><i class="fa-solid fa-receipt text-emerald-400 mr-1"></i>매점 최근 결제 영수증</h3>
+            <span class="text-[10px] text-slate-500">최근 15건</span>
+          </div>
+          <div id="staffReceiptLogList" class="space-y-1.5 max-h-36 overflow-y-auto divide-y divide-slate-800/60 text-xs"></div>
+        </div>
+
+      </div>
+
+      <!-- [관리자 모드 전용 화면] 교사 비밀번호 인증 시에만 열리는 메뉴 -->
+      <div id="teacherModeContainer" class="hidden p-3.5 space-y-3.5">
+
+        <div class="bg-slate-900 p-3 rounded-2xl border border-amber-500/50 space-y-2.5 shadow-lg">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-black text-amber-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-chalkboard-user"></i>교사 관리자 모드 활성화됨
+            </span>
+            <button onclick="switchViewMode('staff')" class="px-2.5 py-1 rounded-lg bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold">
+              🏪 매점 계산기 보기
+            </button>
+          </div>
+
+          <div class="flex items-center gap-1.5">
+            <select id="studentSelect" onchange="selectStudent(this.value)" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 font-black text-xs text-white outline-none flex-1"></select>
+            <button onclick="toggleScannerBox()" class="px-3 py-2 rounded-xl bg-emerald-600 active:bg-emerald-500 text-white text-xs font-black flex items-center gap-1 shadow">
+              <i class="fa-solid fa-camera"></i><span>QR스캔</span>
+            </button>
+            <button onclick="printAllStudentQrCards()" class="px-3 py-2 rounded-xl bg-amber-500 active:bg-amber-400 text-slate-950 text-xs font-black flex items-center gap-1 shadow">
+              <i class="fa-solid fa-print"></i><span>전체QR인쇄</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 교사용 내장 연속 QR 스캐너 -->
+        <div id="scannerSection" class="hidden bg-slate-900 rounded-2xl p-3 border-2 border-emerald-500/60 space-y-2 text-center shadow-lg">
+          <div class="flex items-center justify-between px-1">
+            <span class="text-xs font-black text-emerald-400"><i class="fa-solid fa-camera mr-1"></i>학생 QR 카드를 비춰주세요</span>
+            <div class="flex items-center gap-1.5">
+              <button onclick="switchCameraLens('teacher')" class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-xs font-bold">렌즈전환</button>
+              <button onclick="stopQrScanner()" class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 text-xs font-black">닫기 ✕</button>
+            </div>
+          </div>
+          <div id="qrReader" class="w-full overflow-hidden rounded-xl bg-black h-[220px]"></div>
+        </div>
+
+        <!-- 선택/스캔된 학생의 실시간 잔액 카드 -->
+        <div class="wallet-gradient rounded-3xl p-4 text-white shadow-xl space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-[11px] text-sky-200 font-bold block" id="cardRoomLabel">연수학급 학급화폐 계좌</span>
+              <div class="flex items-baseline gap-1.5 mt-0.5">
+                <h1 id="walletStudentName" class="text-2xl font-black tracking-tight">-</h1>
+                <span class="text-xs text-sky-100 font-bold">학생 지갑</span>
+              </div>
+            </div>
+            <button onclick="toggleMyQrModal()" class="px-3 py-2 rounded-xl bg-white/15 active:bg-white/25 border border-white/30 text-white text-xs font-black flex items-center gap-1.5 shadow">
+              <i class="fa-solid fa-qrcode"></i><span>학생 QR</span>
+            </button>
+          </div>
+
+          <div class="bg-slate-950/40 rounded-2xl p-3.5 border border-white/15">
+            <div class="text-[11px] text-sky-200 font-bold">사용 가능 예수금 (현재 잔액)</div>
+            <div id="walletCashBalance" class="text-3xl font-black font-mono tracking-tight text-amber-300 mt-0.5">0원</div>
+            <div class="grid grid-cols-2 gap-2 mt-2.5 pt-2 border-t border-white/10 text-[11px] font-mono text-sky-100">
+              <div>주식 평가액: <strong id="walletStockValue" class="text-white">0원</strong></div>
+              <div class="text-right">총 자산: <strong id="walletTotalAsset" class="text-white">0원</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 교사 전용 증액(상점) / 차감(벌금·매점) 터치 패드 -->
+        <div class="bg-slate-900 rounded-3xl p-4 border border-amber-500/40 shadow-xl space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+            <div class="flex items-center gap-1.5">
+              <i class="fa-solid fa-coins text-amber-400 text-sm"></i>
+              <h2 class="text-xs font-black text-white">교사 전용 예수금 증액 · 차감</h2>
+            </div>
+            <span class="text-[10px] text-emerald-400 font-bold">주식 수익률에 영향 없음</span>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between text-[11px] text-slate-400 font-bold mb-1">
+              <span>처리할 금액 (버튼 터치 또는 직접 입력)</span>
+              <button type="button" onclick="document.getElementById('posAmountInput').value=''" class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[10px] font-black">초기화 0원</button>
+            </div>
+            <input type="number" id="posAmountInput" inputmode="numeric" placeholder="0"
+              class="w-full bg-slate-950 border-2 border-slate-700 focus:border-amber-400 rounded-2xl px-3.5 py-2.5 text-right font-mono text-2xl font-black text-white outline-none select-text">
+
+            <div class="grid grid-cols-3 gap-1.5 mt-2 font-mono text-xs font-black">
+              <button type="button" onclick="addPosAmount('posAmountInput', 1000)" class="py-2.5 bg-slate-800 active:bg-slate-700 rounded-xl text-slate-200 border border-slate-700">+1,000</button>
+              <button type="button" onclick="addPosAmount('posAmountInput', 5000)" class="py-2.5 bg-slate-800 active:bg-slate-700 rounded-xl text-slate-200 border border-slate-700">+5,000</button>
+              <button type="button" onclick="addPosAmount('posAmountInput', 10000)" class="py-2.5 bg-slate-800 active:bg-slate-700 rounded-xl text-sky-300 border border-slate-700">+1만</button>
+              <button type="button" onclick="addPosAmount('posAmountInput', 50000)" class="py-2.5 bg-slate-800 active:bg-slate-700 rounded-xl text-amber-300 border border-slate-700">+5만</button>
+              <button type="button" onclick="addPosAmount('posAmountInput', 100000)" class="py-2.5 bg-slate-800 active:bg-slate-700 rounded-xl text-emerald-300 border border-slate-700">+10만</button>
+              <button type="button" onclick="addPosAmount('posAmountInput', 500000)" class="py-2.5 bg-slate-800 active:bg-slate-700 rounded-xl text-rose-300 border border-slate-700">+50만</button>
+            </div>
+          </div>
+
+          <div>
+            <div class="grid grid-cols-4 gap-1 text-[11px] font-bold mb-1.5">
+              <button type="button" onclick="setMemo('posMemoInput', '🎁 교사 상점 보상')" class="py-1.5 rounded-lg bg-slate-800 active:bg-slate-700 text-emerald-300">🎁상점</button>
+              <button type="button" onclick="setMemo('posMemoInput', '💰 학급 주급 지급')" class="py-1.5 rounded-lg bg-slate-800 active:bg-slate-700 text-sky-300">💰주급</button>
+              <button type="button" onclick="setMemo('posMemoInput', '⚠️ 학급 벌금 납부')" class="py-1.5 rounded-lg bg-slate-800 active:bg-slate-700 text-rose-300">⚠️벌금</button>
+              <button type="button" onclick="setMemo('posMemoInput', '🛒 학급 매점 구매')" class="py-1.5 rounded-lg bg-slate-800 active:bg-slate-700 text-amber-300">🛒매점</button>
+            </div>
+            <input type="text" id="posMemoInput" value="🎁 교사 상점 보상" placeholder="사유 입력"
+              class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 font-bold outline-none select-text">
+          </div>
+
+          <div class="grid grid-cols-2 gap-2.5 pt-1">
+            <button type="button" onclick="executeTeacherAdjust('deposit')"
+              class="py-4 px-2 rounded-2xl bg-emerald-600 active:scale-95 text-white font-black text-sm shadow-lg flex flex-col items-center justify-center gap-0.5 transition-all">
+              <span class="flex items-center gap-1"><i class="fa-solid fa-circle-plus"></i>교사 증액 (입금)</span>
+              <span class="text-[10px] font-normal text-emerald-100">상점 · 급여 지급</span>
+            </button>
+            <button type="button" onclick="executeTeacherAdjust('withdraw')"
+              class="py-4 px-2 rounded-2xl bg-rose-600 active:scale-95 text-white font-black text-sm shadow-lg flex flex-col items-center justify-center gap-0.5 transition-all">
+              <span class="flex items-center gap-1"><i class="fa-solid fa-circle-minus"></i>예수금 차감 (출금)</span>
+              <span class="text-[10px] font-normal text-rose-100">매점 결제 · 벌금</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 해당 학생의 최근 입출금 내역 -->
+        <div class="bg-slate-900 rounded-3xl p-4 border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-black text-slate-300">
+              <i class="fa-solid fa-receipt text-sky-400 mr-1"></i><strong id="logStudentName" class="text-amber-300">-</strong> 최근 입출금 내역
+            </h3>
+            <span class="text-[10px] text-slate-500">최근 15건</span>
+          </div>
+          <div id="txLogList" class="space-y-1.5 max-h-48 overflow-y-auto divide-y divide-slate-800/60 text-xs"></div>
+        </div>
+
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- 교사 관리자 비밀번호 입력 모달 -->
+  <div id="adminAuthModal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-xs p-5 rounded-3xl shadow-2xl space-y-4 text-center">
+      <div class="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center mx-auto text-xl">
+        <i class="fa-solid fa-user-shield"></i>
+      </div>
+      <div>
+        <h3 class="font-black text-base text-white">교사 관리자 인증</h3>
+        <p class="text-[11px] text-slate-400 mt-0.5">선생님 전용 비밀번호를 입력하세요.</p>
+      </div>
+      <input type="password" id="adminModalPinInput" inputmode="numeric" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter') confirmAdminAuth()"
+        class="w-full bg-slate-950 border-2 border-slate-700 focus:border-amber-400 rounded-2xl px-3 py-2.5 text-center font-mono text-lg text-white outline-none select-text tracking-widest">
+      <div class="grid grid-cols-2 gap-2">
+        <button type="button" onclick="closeAdminAuthModal()" class="py-3 bg-slate-800 text-slate-300 font-bold rounded-xl text-xs">취소</button>
+        <button type="button" onclick="confirmAdminAuth()" class="py-3 bg-amber-500 text-slate-950 font-black rounded-xl text-xs shadow-lg">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 개별 학생 QR 팝업 모달 -->
+  <div id="myQrModal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white text-slate-900 w-full max-w-xs p-6 rounded-3xl shadow-2xl flex flex-col items-center text-center space-y-3">
+      <div class="text-xs font-black text-blue-600" id="modalQrRoomTitle">연수학급 학급페이 QR</div>
+      <h3 class="text-xl font-black text-slate-900" id="modalQrStudentName">-</h3>
+      <div id="singleQrBox" class="p-4 bg-white border-4 border-blue-600 rounded-2xl"></div>
+      <p class="text-[11px] text-slate-500">스마트폰 카메라에서도 초고속으로 인식되는 고선명 QR입니다.</p>
+      <button onclick="toggleMyQrModal()" class="w-full py-3 bg-slate-900 text-white font-black rounded-xl text-xs">닫기</button>
+    </div>
+  </div>
+
+  <!-- 사진 파일 스캔용 숨김 리더 -->
+  <div id="hiddenFileQrReader" class="hidden"></div>
+
+  <!-- 인쇄 전용 전 학생 QR 카드 영역 -->
+  <div id="printArea" class="hidden"></div>
+
+  <script>
+    /* =================================================================================
+       ★ [연수 선생님 필수 수정 구간] 본인 학급의 Firebase Realtime Database 주소 입력 ★
+       ---------------------------------------------------------------------------------
+       1. 아래 DEFAULT_FIREBASE_DB_URL의 큰따옴표(" ") 안에 선생님의 Firebase DB 주소를 넣으세요.
+       2. 주의: index.html 파일의 같은 위치에도 동일한 주소를 입력해야 거래소와 연동됩니다!
+       ================================================================================= */
+    const DEFAULT_FIREBASE_DB_URL = "https://my-class-stock-default-rtdb.firebaseio.com/";
+
+    // 데이터베이스 내 저장 폴더명 (index.html과 반드시 동일해야 함)
+    const FIREBASE_ROOT_PATH = "kosdaq_training_room";
+
+    const STORAGE_KEY_TEACHER_AUTH = 'class_pay_training_teacher_pin_v1';
+    const ROOM_LABELS = { class_1: "연수학급" };
+
+    // index.html을 거치지 않고 pay.html을 먼저 열었을 때를 대비한 기본 25명 명단 (예수금 0원)
+    const DEFAULT_STUDENTS = [
+      "제임스", "마이클", "데니스", "루카스", "마커스",
+      "펠릭스", "알렉스", "토마스", "찰스", "맥스",
+      "에반스", "다비드", "헨리", "리차드", "도날드",
+      "로버트", "케네스", "크리스", "저스틴", "마틴",
+      "케빈", "스티브", "조나단", "올리버", "다니엘"
+    ];
+
+    let currentRoomId = "class_1";
+    let roomCustomTitle = "";
+    let roomTeacherPin = "10101";
+    let seedMoney = 0; // 초기 예수금 0원
+    let stocks = [];
+    let students = {};
+    let payLogs = [];
+
+    let currentStudentName = "";
+    let staffScannedStudent = "";
+    let currentViewMode = 'staff';
+
+    let html5QrScanner = null;
+    let staffQrScanner = null;
+    let availableCameras = [];
+    let selectedCameraIdx = -1;
+
+    let firebaseDb = null;
+    let roomRef = null;
+    let toastTimer = null;
+
+    function getFirebasePathForRoom() {
+      return FIREBASE_ROOT_PATH;
+    }
+    function getMyNameKeyForRoom(roomId) {
+      return `class_stock_training_my_name_${roomId}`;
+    }
+    function getDisplayRoomName() {
+      return roomCustomTitle || ROOM_LABELS[currentRoomId] || "연수학급";
+    }
+
+    function showToast(msg, type = 'success') {
+      const banner = document.getElementById('toastBanner');
+      const text = document.getElementById('toastText');
+      if (toastTimer) clearTimeout(toastTimer);
+      text.textContent = msg;
+      banner.className = `fixed top-3 left-3 right-3 max-w-md mx-auto z-50 flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl shadow-2xl border text-xs font-black ${
+        type === 'error' ? 'bg-rose-950 border-rose-500 text-rose-200' : 'bg-emerald-950 border-emerald-400 text-emerald-100'
+      }`;
+      toastTimer = setTimeout(() => { banner.classList.add('hidden'); banner.classList.remove('flex'); }, 2600);
+    }
+
+    function parseUrlParams() {
+      const params = new URLSearchParams(window.location.search);
+      const nParam = params.get('name');
+
+      currentRoomId = "class_1";
+      if (nParam) {
+        const decoded = decodeURIComponent(nParam);
+        currentStudentName = decoded;
+        staffScannedStudent = decoded;
+      }
+      document.getElementById('backToStockLink').href = `index.html`;
+    }
+
+    function connectFirebase() {
+      if (!firebase.apps.length) {
+        firebase.initializeApp({ databaseURL: DEFAULT_FIREBASE_DB_URL });
+      }
+      firebaseDb = firebase.database();
+      subscribeRoom(currentRoomId);
+    }
+
+    function subscribeRoom(roomId) {
+      if (roomRef) roomRef.off();
+      const path = getFirebasePathForRoom(roomId);
+      roomRef = firebaseDb.ref(path);
+
+      roomRef.on('value', (snap) => {
+        const data = snap.val();
+        if (!data || !data.students) {
+          // 아직 DB가 비어 있을 경우 25명 기본 명단(예수금 0원) 세팅
+          students = {};
+          DEFAULT_STUDENTS.forEach(n => {
+            students[n] = { cash: 0, netDeposit: 0, realizedProfit: 0, realizedCost: 0, pin: "1234", holdings: {} };
+          });
+          currentStudentName = DEFAULT_STUDENTS[0];
+          renderTeacherWalletUI();
+          renderStaffReceiptLogs();
+          return;
+        }
+
+        seedMoney = data.seedMoney !== undefined ? Number(data.seedMoney) : 0;
+        roomCustomTitle = data.roomCustomTitle || "";
+        roomTeacherPin = data.roomTeacherPin ? String(data.roomTeacherPin) : "10101";
+        stocks = Array.isArray(data.stocks) ? data.stocks : Object.values(data.stocks || {});
+        students = data.students || {};
+        payLogs = data.payLogs ? Object.values(data.payLogs).sort((a, b) => b.time - a.time) : [];
+
+        const badgeEl = document.getElementById('roomBadgeLabel');
+        if (badgeEl) badgeEl.textContent = getDisplayRoomName();
+
+        const savedName = localStorage.getItem(getMyNameKeyForRoom(currentRoomId));
+        if (!currentStudentName || !students[currentStudentName]) {
+          currentStudentName = (savedName && students[savedName]) ? savedName : Object.keys(students)[0];
+        }
+
+        const hasUrlName = new URLSearchParams(window.location.search).get('name');
+        if (isTeacherAuthenticated() && hasUrlName) {
+          switchViewMode('teacher');
+        } else if (!isTeacherAuthenticated()) {
+          switchViewMode('staff');
+        }
+
+        if (staffScannedStudent && students[staffScannedStudent]) {
+          document.getElementById('staffScannedCustomerName').textContent = `👤 ${staffScannedStudent} 학생`;
+        }
+        updateStaffBalancePreview();
+
+        updateAdminHeaderUI();
+        renderTeacherWalletUI();
+        renderStaffReceiptLogs();
+      });
+    }
+
+    function getCompactQrPayload(roomId, studentName) {
+      return `1:${studentName}`;
+    }
+
+    function parseAnyQrString(raw) {
+      if (!raw) return null;
+      const text = String(raw).trim();
+
+      if (/^(class_)?[1-5]:.+/.test(text)) {
+        const idx = text.indexOf(':');
+        const sName = text.slice(idx + 1).trim();
+        return { room: "class_1", name: sName };
+      }
+
+      if (text.includes('name=')) {
+        try {
+          const url = new URL(text);
+          const name = decodeURIComponent(url.searchParams.get('name') || '');
+          if (name) return { room: "class_1", name };
+        } catch (e) {}
+      }
+
+      try {
+        const obj = JSON.parse(text);
+        if (obj.name) {
+          return { room: "class_1", name: obj.name };
+        }
+      } catch (e) {}
+
+      if (students[text]) {
+        return { room: "class_1", name: text };
+      }
+
+      return null;
+    }
+
+    async function getPreferredCameraConfig() {
+      try {
+        if (availableCameras.length === 0) {
+          availableCameras = await Html5Qrcode.getCameras();
+        }
+        if (availableCameras.length > 0) {
+          if (selectedCameraIdx >= 0 && selectedCameraIdx < availableCameras.length) {
+            return availableCameras[selectedCameraIdx].id;
+          }
+          const backCams = availableCameras.filter(c => /back|rear|후면|environment/i.test(c.label));
+          if (backCams.length > 0) {
+            const mainBack = backCams.find(c => !/ultra|wide|초광각|0\.5/i.test(c.label)) || backCams[0];
+            selectedCameraIdx = availableCameras.indexOf(mainBack);
+            return mainBack.id;
+          }
+        }
+      } catch (e) {}
+      return { facingMode: "environment" };
+    }
+
+    function getScannerOptions() {
+      return {
+        fps: 20,
+        qrbox: (viewfinderWidth, viewfinderHeight) => {
+          const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+          const boxSize = Math.floor(minEdge * 0.78);
+          return { width: boxSize, height: boxSize };
+        },
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true
+        },
+        videoConstraints: {
+          facingMode: "environment",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          focusMode: "continuous"
+        }
+      };
+    }
+
+    async function switchCameraLens(mode) {
+      try {
+        if (availableCameras.length === 0) {
+          availableCameras = await Html5Qrcode.getCameras();
+        }
+        if (availableCameras.length <= 1) {
+          showToast("전환할 다른 카메라 렌즈가 없습니다.");
+          return;
+        }
+        selectedCameraIdx = (selectedCameraIdx + 1) % availableCameras.length;
+        const camName = availableCameras[selectedCameraIdx].label || `카메라 ${selectedCameraIdx + 1}`;
+        showToast(`📷 렌즈 전환: ${camName}`);
+        if (mode === 'staff') startStaffScanner();
+        else startQrScanner();
+      } catch (e) {
+        showToast("⚠️ 카메라 전환 실패", "error");
+      }
+    }
+
+    async function scanFromPhotoFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      try {
+        const fileScanner = new Html5Qrcode("hiddenFileQrReader");
+        const decodedText = await fileScanner.scanFile(file, true);
+        fileScanner.clear();
+        handleStaffScannedQr(decodedText);
+      } catch (err) {
+        showToast("❌ 사진에서 QR코드를 찾지 못했습니다. 다시 찍어주세요.", "error");
+      }
+      event.target.value = "";
+    }
+
+    function isTeacherAuthenticated() {
+      const savedPin = localStorage.getItem(STORAGE_KEY_TEACHER_AUTH);
+      return (savedPin === roomTeacherPin || savedPin === "10101");
+    }
+
+    function onAdminBtnClick() {
+      if (isTeacherAuthenticated()) {
+        if (currentViewMode === 'staff') {
+          switchViewMode('teacher');
+        } else {
+          localStorage.removeItem(STORAGE_KEY_TEACHER_AUTH);
+          switchViewMode('staff');
+          updateAdminHeaderUI();
+          showToast("🔒 관리자 모드가 종료되었습니다. (매점 직원 화면)");
+        }
+      } else {
+        openAdminAuthModal();
+      }
+    }
+
+    function openAdminAuthModal() {
+      document.getElementById('adminModalPinInput').value = "";
+      const modal = document.getElementById('adminAuthModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      setTimeout(() => document.getElementById('adminModalPinInput').focus(), 80);
+    }
+
+    function closeAdminAuthModal() {
+      const modal = document.getElementById('adminAuthModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function confirmAdminAuth() {
+      const inputPin = document.getElementById('adminModalPinInput').value.trim();
+      if (inputPin === roomTeacherPin || inputPin === "10101") {
+        localStorage.setItem(STORAGE_KEY_TEACHER_AUTH, inputPin);
+        closeAdminAuthModal();
+        switchViewMode('teacher');
+        updateAdminHeaderUI();
+        showToast("👑 교사 관리자 모드로 전환되었습니다!");
+      } else {
+        showToast("❌ 비밀번호가 일치하지 않습니다!", "error");
+        document.getElementById('adminModalPinInput').value = "";
+        document.getElementById('adminModalPinInput').focus();
+      }
+    }
+
+    function switchViewMode(mode) {
+      stopQrScanner();
+      stopStaffScanner();
+      currentViewMode = mode;
+
+      const staffBox = document.getElementById('staffModeContainer');
+      const teacherBox = document.getElementById('teacherModeContainer');
+      const subText = document.getElementById('headerModeSubText');
+      const logoBox = document.getElementById('headerLogoBox');
+
+      if (mode === 'teacher' && isTeacherAuthenticated()) {
+        staffBox.classList.add('hidden');
+        teacherBox.classList.remove('hidden');
+        subText.textContent = "👑 교사 관리자 모드";
+        subText.className = "text-[10px] text-amber-400 font-black block leading-tight";
+        logoBox.className = "w-8 h-8 rounded-xl wallet-gradient flex items-center justify-center text-white font-black text-sm shadow";
+        renderTeacherWalletUI();
+      } else {
+        currentViewMode = 'staff';
+        teacherBox.classList.add('hidden');
+        staffBox.classList.remove('hidden');
+        subText.textContent = "🟢 매점 직원용 POS";
+        subText.className = "text-[10px] text-emerald-400 font-bold block leading-tight";
+        logoBox.className = "w-8 h-8 rounded-xl staff-gradient flex items-center justify-center text-white font-black text-sm shadow";
+        renderStaffReceiptLogs();
+      }
+      updateAdminHeaderUI();
+    }
+
+    function updateAdminHeaderUI() {
+      const btn = document.getElementById('adminToggleBtn');
+      const icon = document.getElementById('adminLockIcon');
+      const label = document.getElementById('adminBtnLabel');
+
+      if (isTeacherAuthenticated() && currentViewMode === 'teacher') {
+        btn.className = "px-2.5 py-1.5 rounded-xl bg-amber-500 text-slate-950 font-black text-xs flex items-center gap-1 shadow";
+        icon.className = "fa-solid fa-unlock";
+        label.textContent = "관리자 종료";
+      } else if (isTeacherAuthenticated() && currentViewMode === 'staff') {
+        btn.className = "px-2.5 py-1.5 rounded-xl bg-amber-950 text-amber-300 border border-amber-500/50 font-black text-xs flex items-center gap-1";
+        icon.className = "fa-solid fa-user-shield";
+        label.textContent = "교사메뉴 열기";
+      } else {
+        btn.className = "px-2.5 py-1.5 rounded-xl bg-slate-800 active:bg-slate-700 text-amber-300 border border-amber-500/40 text-xs font-black flex items-center gap-1";
+        icon.className = "fa-solid fa-lock";
+        label.textContent = "관리자";
+      }
+    }
+
+    function selectStudent(name) {
+      if (!students[name]) return;
+      currentStudentName = name;
+      localStorage.setItem(getMyNameKeyForRoom(currentRoomId), name);
+      renderTeacherWalletUI();
+    }
+
+    function renderTeacherWalletUI() {
+      const names = Object.keys(students);
+      const sel = document.getElementById('studentSelect');
+      if (sel) sel.innerHTML = names.map(n => `<option value="${n}" ${n === currentStudentName ? 'selected' : ''}>${n} 학생</option>`).join('');
+
+      if (!currentStudentName || !students[currentStudentName]) return;
+      const sData = students[currentStudentName];
+      const cash = Number(sData.cash) || 0;
+      let stockVal = 0;
+      if (sData.holdings) {
+        Object.entries(sData.holdings).forEach(([code, h]) => {
+          const st = stocks.find(x => String(x.code) === String(code));
+          if (st && Number(h.qty) > 0) stockVal += Number(st.price) * Number(h.qty);
+        });
+      }
+
+      document.getElementById('cardRoomLabel').textContent = `${getDisplayRoomName()} 학급화폐 계좌`;
+      document.getElementById('walletStudentName').textContent = currentStudentName;
+      document.getElementById('walletCashBalance').textContent = `${cash.toLocaleString()}원`;
+      document.getElementById('walletStockValue').textContent = `${stockVal.toLocaleString()}원`;
+      document.getElementById('walletTotalAsset').textContent = `${(cash + stockVal).toLocaleString()}원`;
+      document.getElementById('logStudentName').textContent = currentStudentName;
+
+      renderTxLogs();
+    }
+
+    function toggleMyQrModal() {
+      const modal = document.getElementById('myQrModal');
+      if (modal.classList.contains('hidden')) {
+        document.getElementById('modalQrRoomTitle').textContent = `[${getDisplayRoomName()}] 학급페이 고선명 QR`;
+        document.getElementById('modalQrStudentName').textContent = `${currentStudentName} 학생`;
+        const box = document.getElementById('singleQrBox');
+        box.innerHTML = "";
+        new QRCode(box, {
+          text: getCompactQrPayload(currentRoomId, currentStudentName),
+          width: 190,
+          height: 190,
+          colorDark: "#000000",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.L
+        });
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      } else {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    function addPosAmount(inputId, val) {
+      const inp = document.getElementById(inputId);
+      inp.value = (parseInt(inp.value, 10) || 0) + val;
+      if (inputId === 'staffAmountInput') updateStaffBalancePreview();
+    }
+
+    function clearStaffAmount() {
+      document.getElementById('staffAmountInput').value = '';
+      updateStaffBalancePreview();
+    }
+
+    function setMemo(inputId, text) {
+      document.getElementById(inputId).value = text;
+    }
+
+    function executeTeacherAdjust(mode) {
+      if (!isTeacherAuthenticated()) {
+        openAdminAuthModal();
+        return;
+      }
+
+      const amount = parseInt(document.getElementById('posAmountInput').value, 10) || 0;
+      if (amount <= 0) {
+        showToast("⚠️ 금액 버튼을 눌러 1원 이상 입력해주세요!", "error");
+        return;
+      }
+
+      const st = students[currentStudentName];
+      if (!st) return;
+
+      const delta = (mode === 'deposit') ? amount : -amount;
+      if (Number(st.cash) + delta < 0) {
+        showToast(`❌ [${currentStudentName}] 예수금 잔액 부족! (현재: ${Number(st.cash).toLocaleString()}원)`, "error");
+        return;
+      }
+
+      const memo = document.getElementById('posMemoInput').value.trim() || (mode === 'deposit' ? '교사 증액' : '교사 차감');
+      const newCash = Number(st.cash) + delta;
+      const newNetDep = (Number(st.netDeposit) || 0) + delta;
+
+      const path = getFirebasePathForRoom(currentRoomId);
+      firebaseDb.ref(`${path}/students/${currentStudentName}`).update({
+        cash: newCash,
+        netDeposit: newNetDep
+      });
+
+      firebaseDb.ref(`${path}/payLogs`).push({
+        student: currentStudentName,
+        type: mode,
+        amount: amount,
+        balanceAfter: newCash,
+        memo: memo,
+        actor: "선생님",
+        time: Date.now()
+      });
+
+      document.getElementById('posAmountInput').value = "";
+      if (mode === 'deposit') {
+        showToast(`💰 [${currentStudentName}] +${amount.toLocaleString()}원 증액 완료!`);
+      } else {
+        showToast(`💸 [${currentStudentName}] -${amount.toLocaleString()}원 차감 완료!`);
+      }
+    }
+
+    function updateStaffBalancePreview() {
+      const balEl = document.getElementById('staffScannedCustomerBalance');
+      const expRow = document.getElementById('staffExpectedRemainRow');
+      const expEl = document.getElementById('staffExpectedRemainBalance');
+      if (!balEl) return;
+
+      if (!staffScannedStudent || !students[staffScannedStudent]) {
+        balEl.textContent = "- 원";
+        balEl.className = "text-2xl font-black font-mono text-slate-500";
+        if (expRow) {
+          expRow.classList.add('hidden');
+          expRow.classList.remove('flex');
+        }
+        return;
+      }
+
+      const curCash = Number(students[staffScannedStudent].cash) || 0;
+      balEl.textContent = `${curCash.toLocaleString()}원`;
+      balEl.className = "text-2xl font-black font-mono text-amber-300";
+
+      const inputAmt = parseInt(document.getElementById('staffAmountInput').value, 10) || 0;
+      if (expRow && expEl) {
+        if (inputAmt > 0) {
+          expRow.classList.remove('hidden');
+          expRow.classList.add('flex');
+          const remain = curCash - inputAmt;
+          if (remain >= 0) {
+            expEl.textContent = `${remain.toLocaleString()}원`;
+            expEl.className = "font-bold text-emerald-300";
+          } else {
+            expEl.textContent = `⚠️ 잔액 부족 (${remain.toLocaleString()}원)`;
+            expEl.className = "font-black text-rose-400";
+          }
+        } else {
+          expRow.classList.add('hidden');
+          expRow.classList.remove('flex');
+        }
+      }
+    }
+
+    async function startStaffScanner() {
+      await stopStaffScanner();
+      const camConfig = await getPreferredCameraConfig();
+      staffQrScanner = new Html5Qrcode("staffQrReader");
+      staffQrScanner.start(
+        camConfig,
+        getScannerOptions(),
+        (decodedText) => {
+          stopStaffScanner();
+          handleStaffScannedQr(decodedText);
+        },
+        () => {}
+      ).catch(() => {
+        showToast("⚠️ 카메라 권한을 허용해주세요!", "error");
+      });
+    }
+
+    async function stopStaffScanner() {
+      if (staffQrScanner) {
+        try {
+          await staffQrScanner.stop();
+          staffQrScanner.clear();
+        } catch (e) {}
+        staffQrScanner = null;
+      }
+    }
+
+    function handleStaffScannedQr(raw) {
+      const parsed = parseAnyQrString(raw);
+      if (!parsed) {
+        showToast("❌ 인식할 수 없는 QR 코드입니다!", "error");
+        return;
+      }
+
+      if (!parsed.name || !students[parsed.name]) {
+        showToast(`❌ 등록되지 않은 학생(${parsed.name || '?'})입니다!`, "error");
+        return;
+      }
+
+      staffScannedStudent = parsed.name;
+      const curCash = Number(students[parsed.name].cash) || 0;
+      document.getElementById('staffScannedCustomerName').textContent = `👤 ${parsed.name} 학생`;
+      updateStaffBalancePreview();
+      showToast(`✅ [${parsed.name}] 스캔 완료! (잔액: ${curCash.toLocaleString()}원)`);
+    }
+
+    function clearStaffScannedCustomer() {
+      staffScannedStudent = "";
+      const el = document.getElementById('staffScannedCustomerName');
+      if (el) el.textContent = "손님 QR을 스캔해주세요";
+      updateStaffBalancePreview();
+    }
+
+    function executeStaffChargeOnly() {
+      if (!staffScannedStudent || !students[staffScannedStudent]) {
+        showToast("⚠️ 먼저 손님 QR 카드를 스캔해주세요!", "error");
+        return;
+      }
+
+      const amount = parseInt(document.getElementById('staffAmountInput').value, 10) || 0;
+      if (amount <= 0) {
+        showToast("⚠️ 결제할 금액 버튼을 눌러주세요!", "error");
+        return;
+      }
+
+      const st = students[staffScannedStudent];
+      const currentCash = Number(st.cash) || 0;
+
+      if (currentCash < amount) {
+        showToast(`❌ [${staffScannedStudent}] 잔액 부족! (현재 잔액: ${currentCash.toLocaleString()}원)`, "error");
+        return;
+      }
+
+      const memo = document.getElementById('staffMemoInput').value.trim() || "🛒 학급 매점 결제";
+      const newCash = currentCash - amount;
+      const newNetDep = (Number(st.netDeposit) || 0) - amount;
+
+      const path = getFirebasePathForRoom(currentRoomId);
+      firebaseDb.ref(`${path}/students/${staffScannedStudent}`).update({
+        cash: newCash,
+        netDeposit: newNetDep
+      });
+
+      firebaseDb.ref(`${path}/payLogs`).push({
+        student: staffScannedStudent,
+        type: 'withdraw',
+        amount: amount,
+        balanceAfter: newCash,
+        memo: memo,
+        actor: "매점직원",
+        time: Date.now()
+      });
+
+      const paidCustomer = staffScannedStudent;
+      document.getElementById('staffAmountInput').value = "";
+      clearStaffScannedCustomer();
+
+      showToast(`🛒 [${paidCustomer}] ${amount.toLocaleString()}원 결제 완료! (남은 잔액: ${newCash.toLocaleString()}원)`);
+    }
+
+    function renderStaffReceiptLogs() {
+      const container = document.getElementById('staffReceiptLogList');
+      if (!container) return;
+      const staffLogs = payLogs.filter(l => l.type === 'withdraw').slice(0, 15);
+
+      if (staffLogs.length === 0) {
+        container.innerHTML = `<div class="text-center py-3 text-slate-500">아직 매점 결제 내역이 없습니다.</div>`;
+        return;
+      }
+
+      container.innerHTML = staffLogs.map(l => {
+        const dt = new Date(l.time);
+        const timeStr = `${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+        const who = l.student || l.from || '-';
+        const remainTxt = l.balanceAfter !== undefined ? ` · 남은잔액 ${Number(l.balanceAfter).toLocaleString()}원` : '';
+        return `
+          <div class="py-1.5 flex items-center justify-between">
+            <div>
+              <span class="font-bold text-slate-200">[${who}] ${l.memo || '매점 결제'}</span>
+              <span class="text-[10px] text-slate-400 block">${timeStr}${remainTxt}</span>
+            </div>
+            <span class="font-mono font-black text-rose-400">-${Number(l.amount).toLocaleString()}원</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderTxLogs() {
+      const container = document.getElementById('txLogList');
+      const myLogs = payLogs.filter(l =>
+        l.student === currentStudentName || l.from === currentStudentName || l.to === currentStudentName
+      ).slice(0, 15);
+
+      if (myLogs.length === 0) {
+        container.innerHTML = `<div class="text-center py-4 text-slate-500">아직 입출금 내역이 없습니다.</div>`;
+        return;
+      }
+
+      container.innerHTML = myLogs.map(l => {
+        const isPlus = (l.type === 'deposit') || (l.to === currentStudentName);
+        const dt = new Date(l.time);
+        const timeStr = `${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+        return `
+          <div class="py-2 flex items-center justify-between">
+            <div>
+              <div class="font-bold text-slate-200">${l.memo || '학급 페이'}</div>
+              <div class="text-[10px] text-slate-400">${timeStr} ${l.balanceAfter !== undefined ? `· 잔액 ${Number(l.balanceAfter).toLocaleString()}원` : ''}</div>
+            </div>
+            <div class="font-mono font-black text-sm ${isPlus ? 'text-emerald-400' : 'text-rose-400'}">
+              ${isPlus ? '+' : '-'}${Number(l.amount).toLocaleString()}원
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function toggleScannerBox() {
+      const sec = document.getElementById('scannerSection');
+      if (sec.classList.contains('hidden')) {
+        sec.classList.remove('hidden');
+        startQrScanner();
+      } else {
+        stopQrScanner();
+      }
+    }
+
+    async function startQrScanner() {
+      await stopQrScanner(false);
+      const camConfig = await getPreferredCameraConfig();
+      html5QrScanner = new Html5Qrcode("qrReader");
+      html5QrScanner.start(
+        camConfig,
+        getScannerOptions(),
+        (decodedText) => {
+          stopQrScanner(true);
+          handleScannedText(decodedText);
+        },
+        () => {}
+      ).catch(() => {
+        showToast("⚠️ 스마트폰 카메라 권한을 허용해주세요!", "error");
+        document.getElementById('scannerSection').classList.add('hidden');
+      });
+    }
+
+    async function stopQrScanner(hideBox = true) {
+      if (html5QrScanner) {
+        try {
+          await html5QrScanner.stop();
+          html5QrScanner.clear();
+        } catch (e) {}
+        html5QrScanner = null;
+      }
+      if (hideBox) document.getElementById('scannerSection').classList.add('hidden');
+    }
+
+    function handleScannedText(raw) {
+      const parsed = parseAnyQrString(raw);
+      if (parsed && parsed.name && students[parsed.name]) {
+        selectStudent(parsed.name);
+        showToast(`✅ [${parsed.name}] 학생 지갑이 조회되었습니다!`);
+        return;
+      }
+      showToast("⚠️ 등록된 학생 QR코드가 아닙니다.", "error");
+    }
+
+    function printAllStudentQrCards() {
+      if (!isTeacherAuthenticated()) {
+        openAdminAuthModal();
+        return;
+      }
+      const printArea = document.getElementById('printArea');
+      const names = Object.keys(students);
+      const roomLabel = getDisplayRoomName();
+      printArea.innerHTML = `
+        <h2 style="text-align:center; font-size:18px; font-weight:900; margin-bottom:14px;">
+          [${roomLabel}] 학급화폐 ClassPay 학생 전용 QR 카드 (스마트폰 고감도 인식용)
+        </h2>
+        <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:14px;">
+          ${names.map((n, idx) => `
+            <div style="border:2px solid #000000; border-radius:14px; padding:14px 8px; text-align:center; page-break-inside:avoid; background:#ffffff;">
+              <div style="font-size:11px; font-weight:700; color:#2563eb;">${roomLabel} 학급화폐</div>
+              <div style="font-weight:900; font-size:17px; margin:2px 0 10px 0; color:#000000;">${n}</div>
+              <div id="printQr_${idx}" style="display:flex; justify-content:center; margin:0 auto; padding:6px; background:#ffffff;"></div>
+              <div style="font-size:9px; color:#475569; margin-top:8px;">ClassPay 전용 QR</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      printArea.classList.remove('hidden');
+
+      names.forEach((n, idx) => {
+        const compactPayload = getCompactQrPayload(currentRoomId, n);
+        new QRCode(document.getElementById(`printQr_${idx}`), {
+          text: compactPayload,
+          width: 125,
+          height: 125,
+          colorDark: "#000000",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.L
+        });
+      });
+
+      setTimeout(() => {
+        window.print();
+        printArea.classList.add('hidden');
+      }, 500);
+    }
+
+    window.addEventListener('load', () => {
+      parseUrlParams();
+      connectFirebase();
+    });
+  </script>
+</body>
+</html>
